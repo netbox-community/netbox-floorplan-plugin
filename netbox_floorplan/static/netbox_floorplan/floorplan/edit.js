@@ -138,6 +138,20 @@ function add_wall() {
 }
 window.add_wall = add_wall;
 
+function add_image() {
+  let url = prompt('Please enter image URL');
+
+  if(url==='' || url===null)
+    return;
+
+  fabric.Image.fromURL(url, function (img) {
+    canvas.add(img);
+    canvas.centerObject(img);
+  });
+}
+
+window.add_image = add_image;
+
 function add_area() {
     var wall = new fabric.Rect({
         top: 0,
