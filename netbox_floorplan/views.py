@@ -116,8 +116,9 @@ class FloorplanRackListView(generic.ObjectListView):
             self.queryset = Rack.objects.all().filter(~Q(id__in=fp_instance.mapped_racks)).filter(
                 site=fp_instance.site.id).order_by("name")
         else:
+            locations = Location.objects.get(pk=fp_instance.location.id).get_descendants(include_self=True)
             self.queryset = Rack.objects.all().filter(~Q(id__in=fp_instance.mapped_racks)).filter(
-                location=fp_instance.location.id).order_by("name")
+                location__in=locations).order_by("name")
         return super().get(request)
 
 
@@ -132,8 +133,9 @@ class FloorplanDeviceListView(generic.ObjectListView):
             self.queryset = Device.objects.all().filter(~Q(id__in=fp_instance.mapped_devices)).filter(
                 site=fp_instance.site.id).order_by("name")
         else:
+            locations = Location.objects.get(pk=fp_instance.location.id).get_descendants(include_self=True)
             self.queryset = Device.objects.all().filter(~Q(id__in=fp_instance.mapped_devices)).filter(
-                location=fp_instance.location.id).order_by("name")
+                location__in=locations).order_by("name")
         return super().get(request)
 
 
