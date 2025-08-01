@@ -1,0 +1,10 @@
+{% extends 'generic/_base.html' %}
+{% load helpers %}
+{% load plugins %}
+{% load render_table from django_tables2 %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+{% render_table table 'inc/table.html' %}
+{% endblock %}

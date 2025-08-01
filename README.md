@@ -2,7 +2,7 @@
 
 <img src="https://github.com/netboxlabs/netbox-floorplan-plugin/workflows/tests/badge.svg" alt="Tests"/>
 
-Forked from https://github.com/tbotnz/netbox_floorplan
+Originally Forked from https://github.com/tbotnz/netbox_floorplan
 
 ## Demo
 ![demo](/media/demo.gif)
@@ -18,26 +18,41 @@ A netbox plugin providing floorplan mapping capability for locations and sites
 
 ## Compatibility
 
-|             |           |
+| NetBox Version | Plugin Version |
 |-------------|-----------|
-| NetBox 3.5  | >= 0.3.2 |
-| NetBox 3.6  | >= 0.3.2 |
+| 3.5         | >= 0.3.2  |
+| 3.6         | >= 0.3.2  |
+| 4.0.x       | 0.4.1     |
+| 4.1.x       | 0.5.0     |
+| 4.2.x       | 0.6.0     |
+| 4.3.x       | 0.7.0     |
 
 ## Installing
 
 The plugin is available as a Python package in pypi and can be installed with pip  
 
+
 ```
-pip install netbox-floorplan-plugin
+sudo pip install netbox-floorplan-plugin
 ```
 Enable the plugin in /opt/netbox/netbox/netbox/configuration.py:
 ```
 PLUGINS = ['netbox_floorplan']
 ```
+Enable Migrations:
+```
+cd /opt/netbox
+sudo ./venv/bin/python3 netbox/manage.py makemigrations netbox_floorplan_plugin
+sudo ./venv/bin/python3 netbox/manage.py migrate
+sudo ./venv/bin/python3 netbox/manage.py collectstatic
+```
+
 Restart NetBox and add `netbox-floorplan-plugin` to your local_requirements.txt
 
 See [NetBox Documentation](https://docs.netbox.dev/en/stable/plugins/#installing-plugins) for details
 
+>[!IMPORTANT]
+>In order for racks to display properly, the rack type of the rack should be specified and a width/height set within the type. 
 
 ## Mentions
 

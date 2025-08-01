@@ -5,7 +5,4 @@ def file_upload(instance, filename):
     """
     path = 'netbox-floorplan/'
 
-    if hasattr(instance, 'site'):
-        path_prepend = instance.site.id
-
-    return f'{path}{path_prepend}_{filename}'
+    return f'{path}{filename}'

@@ -12,6 +12,7 @@ export {
     init_floor_plan
 };
 
+
 function resize_canvas(canvas, window) {
     var bob_width = $("#content-container").width();
     var window_width = $(window).width();
@@ -21,6 +22,8 @@ function resize_canvas(canvas, window) {
     var canvas_height = window_height - 100;
     canvas.setWidth(canvas_width);
     canvas.setHeight(canvas_height);
+//    canvas.backgroundImage.scaleToWidth(canvas_width);
+//    canvas.backgroundImage.scaleToHeight(canvas_height);
     canvas.renderAll();
 }
 
@@ -132,20 +135,78 @@ function move_pan(opt, canvas) {
     }
 }
 
+
+
+
 function init_floor_plan(floorplan_id, canvas, mode) {
 
     if (floorplan_id === undefined || floorplan_id === null || floorplan_id === "") {
         return;
     }
 
+    var target_image = 0;
     const floorplan_call = $.get(`/api/plugins/floorplan/floorplans/?id=${floorplan_id}`);
     floorplan_call.done(function (floorplan) {
         floorplan.results.forEach((floorplan) => {
+            target_image = floorplan.assigned_image
             canvas.loadFromJSON(JSON.stringify(floorplan.canvas), canvas.renderAll.bind(canvas), function (o, object) {
                 if (mode == "readonly") {
                     object.set('selectable', false);
                 }
+                if (floorplan.assigned_image != null) {
+                    var img_url = "";
+                    if (floorplan.assigned_image.external_url != "") {
+                        img_url = floorplan.assigned_image.external_url;
+                    } else {
+                        img_url = floorplan.assigned_image.file;
+                    }
 
+
+                    var img = fabric.Image.fromURL(img_url, function(img) {
+                        var left = 0;
+                        var top = 0;
+                        var width = 0;
+                        var height = 0;
+                        canvas.getObjects().forEach(function (object) {
+                            if (object.custom_meta) {
+                                if (object.custom_meta.object_type == "floorplan_boundry") {
+                                    left = object.left;
+                                    top = object.top;
+                                    width = object.width;
+                                    height = object.height;
+                                }
+                            }
+                        });
+                        // if we have a floorplan boundary, position the image in there 
+                        if (height != 0 && width != 0) {
+                            let scaleRatioX = Math.max(width / img.width)
+                            let scaleRatioY = Math.max(height / img.height);
+                            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                                scaleX: scaleRatioX,
+                                scaleY: scaleRatioY,
+                                left: left,
+                                top: top
+                            });     
+                        }
+                         else
+                        {
+                            let scaleRatio = Math.max(canvas.width / img.width, canvas.height / img.height);
+                            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                                scaleX: scaleRatio,
+                                scaleY: scaleRatio,
+                                left: canvas.width / 2,
+                                top: canvas.height / 2,
+                                originX: 'middle',
+                                originY: 'middle'
+                            });
+                        }
+                    });
+                
+
+                } else {
+                    canvas.setBackgroundImage().renderAll();
+                }
+                canvas.renderAll();
             });
         });
         reset_zoom(canvas);

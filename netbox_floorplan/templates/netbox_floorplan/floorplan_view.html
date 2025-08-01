@@ -3,11 +3,12 @@
 {% load plugins %}
 {% load tz %}
 {% load static %}
-
+{% load django_htmx %}
 {% block head %}
 {{ block.super }}
-<script src="{% static 'netbox_floorplan/vendors/fabric.js' %}"></script>
-<script src="{% static 'netbox_floorplan/vendors/jq.js' %}"></script>
+<script src="{% static 'netbox_floorplan/vendors/fabric-js-6.0.2.js' %}"></script>
+<script src="{% static 'netbox_floorplan/vendors/jquery-3.7.1.js' %}"></script>
+
 
 {% endblock head %}
 
@@ -49,21 +50,21 @@
                 <div class="row">
                     <div class="text-end">
                         {% if floorplan is none %}
-                        <a class="btn btn-sm btn-primary"
+                        <a class="btn btn-primary"
                             href="/plugins/floorplan/floorplans/add/?{% if record_type == 'site' %}site{% else %}location{% endif %}={{object.id}}">
                             <i class="mdi mdi-plus-thick" aria-hidden="true"></i>
                             Add Floorplan
                         </a>
                         {% else %}
                         <input type="hidden" id="floorplan_id" value="{{floorplan.id}}">
-                        <a class="btn btn-sm btn-outline-success" id="export_svg">
+                        <a class="btn btn-outline-success" id="export_svg">
                             Export SVG
                         </a>
-                        <a class="btn btn-sm btn-warning" href="/plugins/floorplan/floorplans/{{floorplan.id}}/edit/">
+                        <a class="btn btn-warning" href="/plugins/floorplan/floorplans/{{floorplan.id}}/edit/">
                             <span class="mdi mdi-pencil" aria-hidden="true"></span>
                             Edit Floorplan
                         </a>
-                        <a class="btn btn-sm btn-danger" href="#"
+                        <a class="btn btn-danger" href="#"
                             hx-get="/plugins/floorplan/floorplans/{{floorplan.id}}/delete/"
                             hx-target="#htmx-modal-content" data-bs-toggle="modal" data-bs-target="#htmx-modal">
                             <span class="mdi mdi-trash-can-outline" aria-hidden="true"></span>
@@ -75,7 +76,7 @@
                 <br>
                 <div class="row">
                     <div id="drawing">
-                        <canvas id="canvas"></canvas>
+                        <canvas id="canvas" style="border:1px solid #000000;"></canvas>
                     </div>
                 </div>
                 <br>

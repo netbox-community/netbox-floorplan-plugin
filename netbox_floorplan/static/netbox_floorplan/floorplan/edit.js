@@ -1,5 +1,6 @@
 // start initial ----------------------------------------------------------------------------- !
 
+
 import {
     resize_canvas,
     export_svg,
@@ -14,6 +15,7 @@ import {
     init_floor_plan
 } from "/static/netbox_floorplan/floorplan/utils.js";
 
+
 var csrf = document.getElementById('csrf').value;
 var obj_pk = document.getElementById('obj_pk').value;
 var obj_name = document.getElementById('obj_name').value;
@@ -21,8 +23,9 @@ var record_type = document.getElementById('record_type').value;
 var site_id = document.getElementById('site_id').value;
 var location_id = document.getElementById('location_id').value;
 
-htmx.ajax('GET', `/plugins/floorplan/floorplans/racks/?floorplan_id=${obj_pk}`, { target: '#rack-card', swap: 'innerHTML', trigger: 'load' })
-htmx.ajax('GET', `/plugins/floorplan/floorplans/devices/?floorplan_id=${obj_pk}`, { target: '#unrack-card', swap: 'innerHTML', trigger: 'load' })
+htmx.ajax('GET', `/plugins/floorplan/floorplans/racks/?floorplan_id=${obj_pk}`, { source: '#rack-card', target: '#rack-card', swap: 'innerHTML', trigger: 'load' })
+htmx.ajax('GET', `/plugins/floorplan/floorplans/devices/?floorplan_id=${obj_pk}`, { source: '#unrack-card', target: '#unrack-card', swap: 'innerHTML', trigger: 'load' })
+
 
 fabric.Object.prototype.set({
     snapThreshold: 45,
@@ -101,7 +104,8 @@ function add_wall() {
         left: 0,
         width: 10,
         height: 500,
-        fill: '#6ea8fe',
+        //fill: '#6ea8fe',
+        fill: 'red',
         opacity: 0.8,
         lockRotation: false,
         originX: "center",
@@ -118,7 +122,6 @@ function add_wall() {
             "object_type": "wall",
         },
     });
-
     var group = new fabric.Group([wall]);
 
     group.setControlsVisibility({
@@ -162,7 +165,7 @@ function add_area() {
     });
     var group = new fabric.Group([wall]);
 
-    group.setControlsVisibility({
+   group.setControlsVisibility({
         mt: true,
         mb: true,
         ml: true,
@@ -174,6 +177,7 @@ function add_area() {
     })
     canvas.add(group);
     canvas.centerObject(group);
+    canvas.requestRenderAll();
 }
 window.add_area = add_area;
 
@@ -250,6 +254,11 @@ window.send_back = send_back;
 function set_dimensions() {
     $('#control_unit_modal').modal('show');
 }
+function set_background() {
+    $('#background_unit_modal').modal('show');
+}
+
+window.set_background = set_background;
 window.set_dimensions = set_dimensions;
 
 function add_text() {
@@ -266,7 +275,7 @@ function add_text() {
 }
 window.add_text = add_text;
 
-function add_floorplan_object(top, left, width, height, unit, fill, rotation, object_id, object_name, object_type, status) {
+function add_floorplan_object(top, left, width, height, unit, fill, rotation, object_id, object_name, object_type, status, image) {
     var object_width;
     var object_height;
     if ( !width || !height || !unit ){
@@ -291,44 +300,89 @@ function add_floorplan_object(top, left, width, height, unit, fill, rotation, ob
         console.log(object_height)
     }
     document.getElementById(`object_${object_type}_${object_id}`).remove();
-    var rect = new fabric.Rect({
-        top: top,
-        name: "rectangle",
-        left: left,
-        width: object_width,
-        height: object_height,
-        fill: fill,
-        opacity: 0.8,
-        lockRotation: false,
-        originX: "center",
-        originY: "center",
-        cornerSize: 15,
-        hasRotatingPoint: true,
-        perPixelTargetFind: true,
-        minScaleLimit: 1,
-        maxWidth: canvasWidth,
-        maxHeight: canvasHeight,
-        centeredRotation: true,
-        custom_meta: {
-            "object_type": object_type,
-            "object_id": object_id,
-            "object_name": object_name,
-            "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
-        },
-    });
+    /* if we have an image, we display the text below, otherwise we display the text within */
+    var rect, text_offset = 0;
+    if (!image) {
+        rect = new fabric.Rect({
+            top: top,
+            name: "rectangle",
+            left: left,
+            width: object_width,
+            height: object_height,
+            fill: fill,
+            opacity: 0.8,
+            lockRotation: false,
+            originX: "center",
+            originY: "center",
+            cornerSize: 15,
+            hasRotatingPoint: true,
+            perPixelTargetFind: true,
+            minScaleLimit: 1,
+            maxWidth: canvasWidth,
+            maxHeight: canvasHeight,
+            centeredRotation: true,
+            custom_meta: {
+                "object_type": object_type,
+                "object_id": object_id,
+                "object_name": object_name,
+                "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
+            },
+        });
+    } else {
+        object_height = object_width;
+        text_offset = object_height/2 + 4;
+        rect = new fabric.Image(null, {
+            top: top,
+            name: "rectangle",
+            left: left,
+            width: object_width,
+            height: object_height,
+            opacity: 1,
+            lockRotation: false,
+            originX: "center",
+            originY: "center",
+            cornerSize: 15,
+            hasRotatingPoint: true,
+            perPixelTargetFind: true,
+            minScaleLimit: 1,
+            maxWidth: canvasWidth,
+            maxHeight: canvasHeight,
+            centeredRotation: true,
+            shadow: new fabric.Shadow({
+                color: "red",
+                blur: 15,
+            }),
+            custom_meta: {
+                "object_type": object_type,
+                "object_id": object_id,
+                "object_name": object_name,
+                "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
+            },
+        });
+        rect.setSrc("/media/" + image, function(img){
+            img.scaleX =  object_width / img.width;
+            img.scaleY =  object_height / img.height;
+            canvas.renderAll();
+        });
+    }
 
-    var text = new fabric.IText(object_name, {
+    var text = new fabric.Textbox(object_name, {
         fontFamily: "Courier New",
         fontSize: 16,
+        splitByGrapheme: text_offset? null : true,
         fill: "#FFFF",
+        width: object_width,
         textAlign: "center",
         originX: "center",
         originY: "center",
         left: left,
-        top: top,
+        top: top + text_offset,
         excludeFromExport: false,
         includeDefaultValues: true,
         centeredRotation: true,
+        stroke: "#000",
+        strokeWidth: 2,
+        paintFirst: 'stroke',
         custom_meta: {
             "text_type": "name",
         }
@@ -343,10 +397,14 @@ function add_floorplan_object(top, left, width, height, unit, fill, rotation, ob
         originX: "center",
         originY: "center",
         left: left,
-        top: top + 16,
+        top: top + text_offset + 16,
         excludeFromExport: false,
         includeDefaultValues: true,
         centeredRotation: true,
+        shadow: text_offset? new fabric.Shadow({
+            color: '#FFF',
+            blur: 1
+        }) : null,
         custom_meta: {
             "text_type": "status",
         }
@@ -412,6 +470,7 @@ window.set_color = set_color;
 function set_zoom(new_current_zoom) {
     current_zoom = new_current_zoom;
     canvas.setZoom(current_zoom);
+    canvas.requestRenderAll()
     document.getElementById("zoom").value = current_zoom;
 }
 window.set_zoom = set_zoom;
@@ -440,6 +499,94 @@ window.center_pan_on_slected_object = center_pan_on_slected_object;
 // end buttons ----------------------------------------------------------------------------- !
 
 // start set scale ----------------------------------------------------------------------------- !
+
+function update_background() {
+    var assigned_image = document.getElementById("id_assigned_image").value;
+    if (assigned_image == "") { 
+        assigned_image = null; 
+        canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+    }
+    var floor_json = canvas.toJSON(["id", "text", "_controlsVisibility", "custom_meta", "lockMovementY", "lockMovementX", "evented", "selectable"]);
+
+
+
+
+
+    $.ajax({
+        type: "PATCH",
+        url: `/api/plugins/floorplan/floorplans/${obj_pk}/`,
+        dataType: "json",
+        headers: {
+            "X-CSRFToken": csrf,
+            "Content-Type": "application/json"
+        },
+        data: JSON.stringify({
+            "assigned_image": assigned_image,
+            "canvas": floor_json
+        }),
+        error: function (err) {
+            console.log(`Error: ${err}`);
+        }
+    }).done(function (floorplan) {
+            if (floorplan.assigned_image != null) {
+                var img_url = "";
+                if (floorplan.assigned_image.external_url != "") {
+                    img_url = floorplan.assigned_image.external_url;
+                } else {
+                    img_url = floorplan.assigned_image.file;
+                }
+
+                var img = fabric.Image.fromURL(img_url, function(img) {
+    
+
+                    var left = 0;
+                    var top = 0;
+                    var width = 0;
+                    var height = 0;
+                    canvas.getObjects().forEach(function (object) {
+                        if (object.custom_meta) {
+                            if (object.custom_meta.object_type == "floorplan_boundry") {
+                                left = object.left;
+                                top = object.top;
+                                width = object.width;
+                                height = object.height;
+                            }
+                        }
+                    });
+                    // if we have a floorplan boundary, position the image in there 
+                    if (height != 0 && width != 0) {
+                        let scaleRatioX = Math.max(width / img.width)
+                        let scaleRatioY = Math.max(height / img.height);
+                        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                            scaleX: scaleRatioX,
+                            scaleY: scaleRatioY,
+                            left: left,
+                            top: top
+                        });     
+                    }
+                    else
+                    {
+                        let scaleRatio = Math.max(canvas.width / img.width, canvas.height / img.height);
+                        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                            scaleX: scaleRatio,
+                            scaleY: scaleRatio,
+                            left: canvas.width / 2,
+                            top: canvas.height / 2,
+                            originX: 'middle',
+                            originY: 'middle'
+                        });
+                    }
+                });
+            
+            } else {
+                canvas.setBackgroundImage().renderAll();
+            }
+            canvas.renderAll();
+            $('#background_unit_modal').modal('hide');
+    });
+}
+
+window.update_background = update_background;
 
 function update_dimensions() {
 
@@ -509,6 +656,7 @@ function update_dimensions() {
             maxHeight: canvasHeight,
             centeredRotation: true,
         });
+
 
         var text = new fabric.IText(`${obj_name}`, {
             fontFamily: "Courier New",

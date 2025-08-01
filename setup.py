@@ -31,10 +31,12 @@ setup(
     description="Netbox Plugin to support graphical floorplans",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/netboxlabs/netbox-floorplan-plugin.git",
+    url="https://github.com/netbox-community/netbox-floorplan-plugin.git",
     license="LGPLv3+",
     install_requires=[],
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
+    min_version="4.3.0",
+    max_version="4.3.99"
 )

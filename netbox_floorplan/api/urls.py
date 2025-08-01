@@ -5,5 +5,5 @@ app_name = 'netbox_floorplan'
 
 router = NetBoxRouter()
 router.register('floorplans', views.FloorplanViewSet)
-
+router.register('floorplanimages', views.FloorplanImageViewSet)
 urlpatterns = router.urls

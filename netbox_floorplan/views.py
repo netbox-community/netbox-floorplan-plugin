@@ -17,7 +17,7 @@ class FloorplanSiteTabView(generic.ObjectView):
     tab = ViewTab(
         label='Floor Plan',
         hide_if_empty=False,
-        permission="netbox_floorplan.view_floorplanobject",
+        permission="netbox_floorplan.view_floorplan",
     )
     template_name = "netbox_floorplan/floorplan_view.html"
 
@@ -38,7 +38,7 @@ class FloorplanLocationTabView(generic.ObjectView):
     tab = ViewTab(
         label="Floor Plan",
         hide_if_empty=False,
-        permission="netbox_floorplan.view_floorplanobject",
+        permission="netbox_floorplan.view_floorplan",
     )
     template_name = "netbox_floorplan/floorplan_view.html"
 
@@ -55,10 +55,11 @@ class FloorplanLocationTabView(generic.ObjectView):
 class FloorplanListView(generic.ObjectListView):
     queryset = models.Floorplan.objects.all()
     table = tables.FloorplanTable
+    template_name = "netbox_floorplan/floorplan_ui_listview.html"
 
 
 class FloorplanAddView(PermissionRequiredMixin, View):
-    permission_required = "netbox_floorplan.add_floorplanobject"
+    permission_required = "netbox_floorplan.add_floorplan"
 
     def get(self, request):
         if request.GET.get("site"):
@@ -79,7 +80,7 @@ class FloorplanDeleteView(generic.ObjectDeleteView):
 
 
 class FloorplanMapEditView(LoginRequiredMixin, View):
-    permission_required = "netbox_floorplan.edit_floorplanobject"
+    permission_required = "netbox_floorplan.edit_floorplan"
 
     def get(self, request, pk):
         fp = models.Floorplan.objects.get(pk=pk)
@@ -92,8 +93,10 @@ class FloorplanMapEditView(LoginRequiredMixin, View):
             location = Location.objects.get(id=fp.location.id)
         racklist = Rack.objects.filter(site=site)
         form = forms.FloorplanRackFilterForm
+        form2 = forms.FloorplanForm
         return render(request, "netbox_floorplan/floorplan_edit.html", {
             "form": form,
+            "form2": form2,
             "site": site,
             "location": location,
             "racklist": racklist,
@@ -128,9 +131,33 @@ class FloorplanDeviceListView(generic.ObjectListView):
         fp_instance = models.Floorplan.objects.get(pk=fp_id)
         if fp_instance.record_type == "site":
             self.queryset = Device.objects.all().filter(~Q(id__in=fp_instance.mapped_devices)).filter(
-                site=fp_instance.site.id).order_by("name")
+                site=fp_instance.site.id, rack=None).order_by("name")
         else:
             locations = Location.objects.get(pk=fp_instance.location.id).get_descendants(include_self=True)
             self.queryset = Device.objects.all().filter(~Q(id__in=fp_instance.mapped_devices)).filter(
-                location__in=locations).order_by("name")
+                location=fp_instance.location.id, rack=None).order_by("name")
         return super().get(request)
+
+
+@register_model_view(models.FloorplanImage)
+class FloorplanImageView(generic.ObjectView):
+    queryset = models.FloorplanImage.objects.all()
+
+
+@register_model_view(models.FloorplanImage, "list", path="", detail=False)
+class FloorplanImageListView(generic.ObjectListView):
+    queryset = models.FloorplanImage.objects.all()
+    table = tables.FloorplanImageTable
+
+
+@register_model_view(models.FloorplanImage, "add", detail=False)
+@register_model_view(models.FloorplanImage, "edit")
+class FloorplanImageEditView(generic.ObjectEditView):
+    queryset = models.FloorplanImage.objects.all()
+    form = forms.FloorplanImageForm
+    template_name = 'netbox_floorplan/floorplanimage_edit.html'
+
+
+@register_model_view(models.FloorplanImage, "delete")
+class FloorplanImageDeleteView(generic.ObjectDeleteView):
+    queryset = models.FloorplanImage.objects.all()

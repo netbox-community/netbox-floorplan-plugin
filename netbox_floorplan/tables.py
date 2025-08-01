@@ -1,18 +1,34 @@
 import django_tables2 as tables
 
 from netbox.tables import NetBoxTable
-from .models import Floorplan
+from .models import Floorplan, FloorplanImage
 
 from dcim.models import Rack
 
 
+class FloorplanImageTable(NetBoxTable):
+    name = tables.Column(
+        linkify=True,
+    )
+
+    class Meta(NetBoxTable.Meta):
+        model = FloorplanImage
+        fields = (
+            'pk',
+            'id',
+            'name',
+            'file'
+        )
+
+
 class FloorplanTable(NetBoxTable):
+
     class Meta(NetBoxTable.Meta):
         model = Floorplan
         fields = ('pk', 'site', 'location',
-                  'background_image', 'width', 'height')
+                  'assigned_image', 'width', 'height')
         default_columns = ('pk', 'site', 'location',
-                           'background_image', 'width', 'height')
+                           'assigned_image', 'width', 'height')
 
 
 class FloorplanRackTable(NetBoxTable):
@@ -38,7 +54,7 @@ class FloorplanDeviceTable(NetBoxTable):
     name = tables.LinkColumn()
 
     actions = tables.TemplateColumn(template_code="""
-    <a type="button" class="btn btn-sm btn-outline-info" onclick="add_floorplan_object(30, 50, 60, 91, '{{ record.outer_unit }}', '#ea8fe', 30, '{{ record.id }}', '{{ record.name }}', 'device', '{{ record.status }}')">Add Device
+    <a type="button" class="btn btn-sm btn-outline-info" onclick="add_floorplan_object(30, 50, 60, 60, '{{ record.outer_unit }}', '#ea8fe', 30, '{{ record.id }}', '{{ record.name }}', 'device', '{{ record.status }}', '{{ record.device_type.front_image }}')">Add Device
     </a>
     """)
 
