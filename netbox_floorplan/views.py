@@ -58,7 +58,7 @@ class FloorplanListView(generic.ObjectListView):
 
 
 class FloorplanAddView(PermissionRequiredMixin, View):
-    permission_required = "netbox_floorplan.add_floorplano"
+    permission_required = "netbox_floorplan.add_floorplan"
 
     def get(self, request):
         if request.GET.get("site"):
