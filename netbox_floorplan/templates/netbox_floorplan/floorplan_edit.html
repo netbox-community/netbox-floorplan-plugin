@@ -45,7 +45,7 @@
         <div id="draggable-area">
             <div class="col-md-12">
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="card">
                             <h5 class="card-header">Controls</h5>
                             <div class="card-body">
@@ -70,6 +70,10 @@
                                     <div class="mb-3">
                                         <div class="mb-1">
                                             <label class="form-label">Rack/Device Add / Delete</label>
+                                            <small class="form-text text-muted">
+                                                <strong>Simple Rack/Device:</strong> Add a rack/device that shows name + status only<br>
+                                                <strong>Advanced Rack/Device:</strong> Add a rack/device that shows name + status + role + tenant
+                                            </small>
                                         </div>
                                         <ul class="nav nav-tabs">
                                             <li class="nav-item">
@@ -112,7 +116,7 @@
                                             Area
                                         </a>
                                         <a class="btn btn-outline-success" onclick="add_text()">
-                                            Add label
+                                            Add Label
                                         </a>
                                         <a class="btn btn-outline-info tools disabled" onclick="lock_floorplan_object()" id="lock_button">Lock/Unlock Object
                                         </a>
@@ -126,9 +130,46 @@
                                     <div class="mb-3">
                                         <a class="btn btn-outline-info tools disabled">
                                             Set Color
-                                            <input type="color" id="selected_color" name="body" value=""
+                                            <input type="color" id="selected_color" name="body" value="#000000"
                                                 oninput="set_color(this.value)" class="tools disabled">
                                         </a>
+                                    </div>
+                                    <!-- Set color textbox for the rack text (Default #6EA8FE: blue)-->
+                                    <div class="mb-3">
+                                        <a class="btn btn-outline-info tools disabled">
+                                            Set Text Color
+                                            <input type="color" id="selected_text_color" name="text_color" value="#6EA8FE"
+                                                oninput="set_text_color(this.value)" class="tools disabled">
+                                        </a>
+                                    </div>
+                                    <!-- Buttons to show or hide the status, role, and tenant -->
+                                    <div class="mb-3">
+                                        <div class="mb-1">
+                                            <label class="form-label">Rack/Device Display Options</label>
+                                            <small class="form-text text-muted">Select a rack or device to change whether to show the following info<br></small>
+                                            <small class="form-text text-muted"><b>Note: </b>Only works with Advanced racks/devices</small>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input tools disabled" type="checkbox" value="" id="show_status" checked
+                                                onchange="toggle_text_visibility('status', this.checked)">
+                                            <label class="form-check-label" for="show_status">
+                                                Status
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input tools disabled" type="checkbox" value="" id="show_role" checked
+                                                onchange="toggle_text_visibility('role', this.checked)">
+                                            <label class="form-check-label" for="show_role">
+                                                Role
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input tools disabled" type="checkbox" value="" id="show_tenant" checked
+                                                onchange="toggle_text_visibility('tenant', this.checked)">
+                                            <label class="form-check-label" for="show_tenant">
+                                                Tenant
+                                            </label>
+                                        </div>
                                     </div>
                                     <div class="mb-3">
                                         <div class="mb-1">
@@ -172,7 +213,7 @@
                         </div>
                     </div>
 
-                    <div class="col-md-9">
+                    <div class="col-md-8">
                         <div class="card">
                             <div class="card-body" id="content-container">
                                 <div id="drag_zone">

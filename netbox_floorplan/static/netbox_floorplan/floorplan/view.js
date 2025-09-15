@@ -30,7 +30,9 @@ canvas.on('mouse:down', function (options) {
 
 // start zoom, pan control & resizing ----------------------------------------------------------------------------- !
 
-$(window).resize(resize_canvas(canvas, window));
+$(window).resize(function() {
+    resize_canvas(canvas, window);
+});
 
 canvas.on('mouse:wheel', function (opt) {
     wheel_zoom(opt, canvas);
@@ -56,4 +58,6 @@ document.getElementById('export_svg').addEventListener('click', () => {
 
 
 let floorplan_id = document.getElementById('floorplan_id').value;
-document.addEventListener("DOMContentLoaded", init_floor_plan(floorplan_id, canvas, "readonly"));
+document.addEventListener("DOMContentLoaded", function() {
+    init_floor_plan(floorplan_id, canvas, "readonly");
+});
