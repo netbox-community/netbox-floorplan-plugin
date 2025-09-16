@@ -217,9 +217,9 @@ class Floorplan(NetBoxModel):
                                 if obj.get("objects"):
                                     for subobj in obj["objects"]:
                                         if (subobj.get("type") in ["i-text", "textbox"] and
-                                            subobj.get("custom_meta", {}).get("text_type") == "info"):
-                                                is_advanced_mode_rack = True
-                                                break
+                                                subobj.get("custom_meta", {}).get("text_type") == "info"):
+                                            is_advanced_mode_rack = True
+                                            break
 
                                 # Only apply automatic color updates to advanced racks
                                 if not color_manually_set and is_advanced_mode_rack:
