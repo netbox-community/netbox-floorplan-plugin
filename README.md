@@ -7,6 +7,10 @@ Originally Forked from https://github.com/tbotnz/netbox_floorplan
 ## Demo
 ![demo](/media/demo.gif)
 
+## New Demo with Enhancements
+
+![new-enhancements](/media/new-floorplan-demo.gif)
+
 ## Summary
 A netbox plugin providing floorplan mapping capability for locations and sites
 
