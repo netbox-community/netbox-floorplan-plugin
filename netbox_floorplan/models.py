@@ -211,16 +211,16 @@ class Floorplan(NetBoxModel):
                                 # and for advanced racks only)
                                 # Check if color was manually set by looking for manual_color flag
                                 color_manually_set = obj["custom_meta"].get("manual_color", False)
-                                
+
                                 # Detect if this is an advanced rack by checking for info text type
                                 is_advanced_mode_rack = False
                                 if obj.get("objects"):
                                     for subobj in obj["objects"]:
                                         if (subobj.get("type") in ["i-text", "textbox"] and
-                                            subobj.get("custom_meta", {}).get("text_type") == "info"):
+                                        subobj.get("custom_meta", {}).get("text_type") == "info"):
                                             is_advanced_mode_rack = True
                                             break
-                                
+
                                 # Only apply automatic color updates to advanced racks
                                 if not color_manually_set and is_advanced_mode_rack:
                                     expected_color = None
@@ -266,12 +266,12 @@ class Floorplan(NetBoxModel):
                                                 # Handle combined info text box (advanced mode)
                                                 rack_role_text = rack.role.name if rack.role else ""
                                                 rack_tenant_text = f"{rack.tenant}" if rack.tenant else ""
-                                                
+
                                                 # Update stored values in custom_meta
                                                 subobj["custom_meta"]["status"] = f"{rack.status}"
                                                 subobj["custom_meta"]["role"] = rack_role_text
                                                 subobj["custom_meta"]["tenant"] = rack_tenant_text
-                                                
+
                                                 # Rebuild the combined text based on visibility settings
                                                 info_lines = []
                                                 if subobj["custom_meta"].get("show_status", True):
@@ -280,7 +280,7 @@ class Floorplan(NetBoxModel):
                                                     info_lines.append(rack_role_text)
                                                 if subobj["custom_meta"].get("show_tenant", True) and rack_tenant_text:
                                                     info_lines.append(rack_tenant_text)
-                                                
+
                                                 new_text = '\n'.join(info_lines)
                                                 if subobj["text"] != new_text:
                                                     self.canvas["objects"][index]["objects"][subcounter]["text"] = new_text
@@ -326,18 +326,18 @@ class Floorplan(NetBoxModel):
                                             elif subobj.get("custom_meta", {}).get("text_type") == "info":
                                                 # Handle combined info text box for devices (advanced mode)
                                                 device_tenant_text = f"{device.tenant}" if device.tenant else ""
-                                                
+
                                                 # Update stored values in custom_meta
                                                 subobj["custom_meta"]["status"] = f"{device.status}"
                                                 subobj["custom_meta"]["tenant"] = device_tenant_text
-                                                
+
                                                 # Rebuild the combined text based on visibility settings
                                                 info_lines = []
                                                 if subobj["custom_meta"].get("show_status", True):
                                                     info_lines.append(f"{device.status}")
                                                 if subobj["custom_meta"].get("show_tenant", True) and device_tenant_text:
                                                     info_lines.append(device_tenant_text)
-                                                
+
                                                 new_text = '\n'.join(info_lines)
                                                 if subobj["text"] != new_text:
                                                     self.canvas["objects"][index]["objects"][subcounter]["text"] = new_text
