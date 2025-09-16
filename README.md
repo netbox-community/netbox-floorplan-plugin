@@ -7,7 +7,7 @@ Originally Forked from https://github.com/tbotnz/netbox_floorplan
 ## Demo
 ![demo](/media/demo.gif)
 
-## New Demo with Enhancements
+## New Demo Showing New Plugin Behavior with Advanced Rack Behavior
 
 ![new-enhancements](/media/new-floorplan-demo.gif)
 
