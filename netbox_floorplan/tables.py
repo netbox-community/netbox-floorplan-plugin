@@ -3,12 +3,8 @@ import django_tables2 as tables
 from netbox.tables import NetBoxTable
 from .models import Floorplan, FloorplanImage
 from functools import cached_property
-from django.urls.exceptions import NoReverseMatch
 
 from dcim.models import Rack, Device
-
-from utilities.views import get_action_url
-
 
 class FloorplanImageTable(NetBoxTable):
     name = tables.Column(
