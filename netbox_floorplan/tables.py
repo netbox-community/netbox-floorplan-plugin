@@ -6,6 +6,7 @@ from functools import cached_property
 
 from dcim.models import Rack, Device
 
+
 class FloorplanImageTable(NetBoxTable):
     name = tables.Column(
         linkify=True,
@@ -53,6 +54,7 @@ class FloorplanRackTable(NetBoxTable):
             'id': lambda record: 'object_rack_{}'.format(record.pk),
         }
 
+
 class FloorplanDeviceTable(NetBoxTable):
     name = tables.LinkColumn()
     embedded = True
@@ -67,9 +69,8 @@ class FloorplanDeviceTable(NetBoxTable):
         # no need to check for embedded as this table is always embedded
         return "/plugins/floorplan/floorplans/devices/"
 
-
     class Meta(NetBoxTable.Meta):
-        model = Device 
+        model = Device
         fields = ('pk', 'name', 'device_type')
         default_columns = ('pk', 'name', 'device_type')
         row_attrs = {
