@@ -3,6 +3,7 @@ export {
     export_svg,
     enable_button_selection,
     disable_button_selection,
+    updateColorPickers,
     prevent_leaving_canvas,
     wheel_zoom,
     reset_zoom,
@@ -65,17 +66,85 @@ function export_svg(canvas) {
     link.href = locfilesrc;
     link.download = "floorplan.svg";
     link.click();
+    // Clean up the URL object to prevent memory leaks
+    setTimeout(function() {
+        URL.revokeObjectURL(locfilesrc);
+    }, 100);
 }
 
 function enable_button_selection() {
-    document.getElementById("selected_color").value = "#000000";
+    // Get current colors from selected object and update color pickers
+    updateColorPickers();
     $(".tools").removeClass("disabled");
+    
+    // Update text visibility controls. Needed when rack or device is selected
+    // to make function exists before calling it
+    if (typeof window.update_text_visibility_controls === 'function') {
+        window.update_text_visibility_controls();
+    }
+}
+
+function updateColorPickers() {
+    var canvas = window.canvas;
+    if (!canvas) {
+        return;
+    }
+    
+    var object = canvas.getActiveObject();
+    var objectColor = "#000000"; // Default
+    var textColor = "#6EA8FE"; // Default
+    
+    if (object) {
+        // For single text objects
+        if (object.type === "i-text" || object.type === "textbox") {
+            objectColor = textColor = object.fill || "#000000";
+        }
+        // For groups (like racks/devices)
+        else if (object._objects) {
+            // Get object color from first object (usually the rectangle)
+            if (object._objects[0]) {
+                objectColor = object._objects[0].fill || "#000000";
+            }
+            
+            // Get text color from first text object found
+            for (var i = 0; i < object._objects.length; i++) {
+                if (object._objects[i].type === "i-text" || object._objects[i].type === "textbox") {
+                    textColor = object._objects[i].fill || "#6EA8FE";
+                    break;
+                }
+            }
+        }
+    }
+
+    // Convert colors to hex format using Fabric.js Color class
+    try {
+        objectColor = "#" + new fabric.Color(objectColor).toHex();
+    } catch (e) {
+        objectColor = "#000000"; // Fallback to default
+    }
+    
+    try {
+        textColor = "#" + new fabric.Color(textColor).toHex();
+    } catch (e) {
+        textColor = "#6EA8FE"; // Fallback to default
+    }
+
+    // Update color picker values
+    document.getElementById("selected_color").value = objectColor;
+    document.getElementById("selected_text_color").value = textColor;
 }
 
 function disable_button_selection() {
     // set color to default
-    document.getElementById("selected_color").value = "#000000";
+    document.getElementById("selected_color").value = "#000000"; // Default color black
+    document.getElementById("selected_text_color").value = "#6EA8FE"; // Default color blue
     $(".tools").addClass("disabled");
+    
+    // Update text visibility controls. Needed when rack or device is selected
+    // to make function exists before calling it
+    if (typeof window.update_text_visibility_controls === 'function') {
+        window.update_text_visibility_controls();
+    }
 }
 
 function prevent_leaving_canvas(e, canvas) {

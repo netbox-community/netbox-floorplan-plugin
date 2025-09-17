@@ -23,6 +23,7 @@ var record_type = document.getElementById('record_type').value;
 var site_id = document.getElementById('site_id').value;
 var location_id = document.getElementById('location_id').value;
 
+
 htmx.ajax('GET', `/plugins/floorplan/floorplans/racks/?floorplan_id=${obj_pk}`, { source: '#rack-card', target: '#rack-card', swap: 'innerHTML', trigger: 'load' })
 htmx.ajax('GET', `/plugins/floorplan/floorplans/devices/?floorplan_id=${obj_pk}`, { source: '#unrack-card', target: '#unrack-card', swap: 'innerHTML', trigger: 'load' })
 
@@ -37,6 +38,8 @@ var current_zoom = 1;
 var canvas = new fabric.Canvas('canvas'),
     canvasWidth = document.getElementById('canvas').width,
     canvasHeight = document.getElementById('canvas').height;
+
+window.canvas = canvas;
 
 // end initial ----------------------------------------------------------------------------- !
 
@@ -69,7 +72,9 @@ canvas.on('object:moving', function (options) {
 
 // start zoom, pan control & resizing ----------------------------------------------------------------------------- !
 
-$(window).resize(resize_canvas(canvas, window));
+$(window).resize(function() {
+    resize_canvas(canvas, window);
+});
 
 canvas.on('mouse:wheel', function (opt) {
     wheel_zoom(opt, canvas);
@@ -268,14 +273,16 @@ function add_text() {
         top: 100,
         fontSize: 12,
         textAlign: "left",
-        fill: "#fff"
+        fill: "#000000"
     });
     canvas.add(object);
     canvas.centerObject(object);
 }
 window.add_text = add_text;
 
-function add_floorplan_object(top, left, width, height, unit, fill, rotation, object_id, object_name, object_type, status, image) {
+// Original plugin code to add a rack or device with only name and status
+function add_floorplan_object_simple(top, left, width, height, unit, fill,
+    rotation, object_id, object_name, object_type, status, image) {
     var object_width;
     var object_height;
     if ( !width || !height || !unit ){
@@ -370,7 +377,7 @@ function add_floorplan_object(top, left, width, height, unit, fill, rotation, ob
         fontFamily: "Courier New",
         fontSize: 16,
         splitByGrapheme: text_offset? null : true,
-        fill: "#FFFF",
+        fill: "#FFFFFF",
         width: object_width,
         textAlign: "center",
         originX: "center",
@@ -402,7 +409,7 @@ function add_floorplan_object(top, left, width, height, unit, fill, rotation, ob
         includeDefaultValues: true,
         centeredRotation: true,
         shadow: text_offset? new fabric.Shadow({
-            color: '#FFF',
+            color: '#FFFFFF',
             blur: 1
         }) : null,
         custom_meta: {
@@ -436,36 +443,505 @@ function add_floorplan_object(top, left, width, height, unit, fill, rotation, ob
     canvas.centerObject(group);
     //canvas.bringToFront(group);
 }
-window.add_floorplan_object = add_floorplan_object;
+window.add_floorplan_object_simple = add_floorplan_object_simple;
 
 function delete_floorplan_object() {
-    var object = canvas.getActiveObject();
-    if (object) {
-        canvas.remove(object);
-        canvas.renderAll();
-    }
-    save_floorplan();
-    setTimeout(() => {
-        htmx.ajax('GET', `/plugins/floorplan/floorplans/racks/?floorplan_id=${obj_pk}`, { target: '#rack-card', swap: 'innerHTML' });
-        htmx.ajax('GET', `/plugins/floorplan/floorplans/devices/?floorplan_id=${obj_pk}`, { target: '#unrack-card', swap: 'innerHTML' });
-    }, 1500);
+    // Get all active objects (in case of multiple selections)
+    var objects = canvas.getActiveObjects();
+    objects.forEach(object => {
+        if (object) {
+            canvas.remove(object);
+            canvas.renderAll();
+        }
+        save_floorplan();
+        setTimeout(() => {
+            htmx.ajax('GET', `/plugins/floorplan/floorplans/racks/?floorplan_id=${obj_pk}`, { target: '#rack-card', swap: 'innerHTML' });
+            htmx.ajax('GET', `/plugins/floorplan/floorplans/devices/?floorplan_id=${obj_pk}`, { target: '#unrack-card', swap: 'innerHTML' });
+        }, 1500);
+    });
+    // Clear the selection after deletion
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
 };
 window.delete_floorplan_object = delete_floorplan_object;
 
 function set_color(color) {
-    var object = canvas.getActiveObject();
-    if (object) {
-        if (object.type == "i-text") {
-            object.set('fill', color);
-            canvas.renderAll();
-            return;
+    // Get all active objects (in case of multiple selections)
+    var objects = canvas.getActiveObjects();
+    objects.forEach(object => {
+        if (object) {
+            if (object.type == "i-text") {
+                object.set('fill', color);
+                canvas.renderAll();
+                // Update the color picker to match the selected color
+                document.getElementById("selected_color").value = color;
+                return;
+            }
+            object._objects[0].set('fill', color);
+            
+            // Mark that color was manually set if this is a rack or device object
+            if (object.custom_meta && (object.custom_meta.object_type === "rack" ||
+                object.custom_meta.object_type === "device")) {
+                object.custom_meta.manual_color = true;
+            }
+            
+            //canvas.renderAll();
+            // Update the color picker to match the selected color
+            document.getElementById("selected_color").value = color;
+
         }
-        object._objects[0].set('fill', color);
-        canvas.renderAll();
-        return;
-    }
+    });
+    canvas.renderAll();
 }
 window.set_color = set_color;
+
+// Start of helper functions for advanced racks/devices
+
+// Calculate the correct text height so textboxes don't overlap for advanced racks
+function calculateDynamicTextHeight(textContent, fontSize, textWidth) {
+    // Return minimum height for empty, null, or whitespace-only text
+    if (!textContent || textContent.trim() === "") {
+        return fontSize + 6;
+    }
+
+    var tempText = new fabric.Textbox(textContent, {
+        fontSize: fontSize,
+        width: textWidth + 3,
+        fontFamily: "Courier New",
+        splitByGrapheme: true,
+        breakWords: true,
+        wordWrap: true,
+    });
+
+    // Create a temporary canvas to properly measure the text
+    var tempCanvas = new fabric.StaticCanvas();
+    tempCanvas.add(tempText);
+
+    // Get the actual rendered height
+    var measuredHeight = tempText.height;
+
+    // Clean up
+    tempCanvas.dispose();
+
+    // Add generous padding for multi-line text
+    return Math.max(measuredHeight + 6, fontSize * 1.5); // Ensure minimum height
+}
+
+// Calculate optimal font size to fit text within available space
+// Assistance from Github Copilot used to create this function
+function calculateOptimalFontSize(textContent, maxWidth, maxHeight, minFontSize = 8, maxFontSize = 13) {
+    if (!textContent || textContent.trim() === "") {
+        return maxFontSize;
+    }
+
+    var optimalSize = maxFontSize;
+    
+    // Binary search for optimal font size
+    var low = minFontSize;
+    var high = maxFontSize;
+    
+    var tempCanvas = null;
+    var tempText = null;
+    
+    try {
+        // Create a single canvas instance outside the loop
+        tempCanvas = new fabric.StaticCanvas();
+        
+        while (low <= high) {
+            var mid = Math.floor((low + high) / 2);
+            
+            // Remove previous temporary text object if it exists
+            if (tempText) {
+                tempCanvas.remove(tempText);
+            }
+            
+            // Create new text object with current font size
+            tempText = new fabric.Textbox(textContent, {
+                fontSize: mid,
+                width: maxWidth,
+                fontFamily: "Courier New",
+                splitByGrapheme: false,
+                breakWords: true,
+                wordWrap: true,
+            });
+
+            // Clear the canvas before adding the text
+            tempCanvas.clear();
+            tempCanvas.add(tempText);
+            
+            var textHeight = tempText.height;
+            var textWidth = tempText.width;
+            
+            // Check both height and width constraints
+            if (textHeight <= maxHeight && textWidth <= maxWidth) {
+                optimalSize = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        
+        return Math.max(optimalSize, minFontSize);
+    } finally {
+        // Clean up all resources
+        if (tempCanvas) {
+            if (tempText) {
+                tempCanvas.remove(tempText);
+            }
+            tempCanvas.clear();
+            tempCanvas.dispose();
+        }
+    }
+}
+
+// Create combined info text that shows status, role, and tenant
+function buildInfoText(status, role, tenant) {
+    var infoLines = [];
+    
+    if (status) {
+        infoLines.push(status);
+    }
+    if (role) {
+        infoLines.push(role);
+    }
+    if (tenant) {
+        infoLines.push(tenant);
+    }
+    
+    return infoLines.join('\n');
+}
+
+// End of helper functions for advanced racks/devices
+
+// Add a rack or device with additional information (text color, role, tenant) compared to "Simple" rack/device which
+// only shows name and status
+function add_floorplan_object_advanced(top, left, width, height, unit, fill, rotation, object_id, object_name,
+    object_type, status, tenant, role, image, text_color) {
+    // Set default text color (blue) if not provided
+    if (!text_color) {
+        text_color = "#000000";
+    }
+    var object_width;
+    var object_height;
+    if ( !width || !height || !unit ){
+        object_width = 60;
+        object_height = 91;
+    } else {
+        var conversion_scale = 100;
+        console.log("width: " + width)
+        console.log("unit: " + unit)
+        console.log("height: " + height)
+        if (unit == "in") {
+            var new_width = (width * 0.0254) * conversion_scale;
+            var new_height = (height * 0.0254) * conversion_scale;
+        } else {
+            var new_width = (width / 1000) * conversion_scale;
+            var new_height = (height / 1000) * conversion_scale;
+        }
+    
+        object_width = parseFloat(new_width.toFixed(2));
+        console.log(object_width)
+        object_height = parseFloat(new_height.toFixed(2));
+        console.log(object_height)
+    }
+    document.getElementById(`object_${object_type}_${object_id}`).remove();
+    /* if we have an image, we display the text below, otherwise we display the text within */
+    var rect, text_offset = 0;
+    // Variable used to move all text height up or down
+    var heightAdjustment = -35;
+    if (!image) {
+        rect = new fabric.Rect({
+            top: top,
+            name: "rectangle",
+            left: left,
+            width: object_width,
+            height: object_height,
+            fill: fill,
+            opacity: 0.8,
+            lockRotation: false,
+            originX: "center",
+            originY: "center",
+            cornerSize: 15,
+            hasRotatingPoint: true,
+            perPixelTargetFind: true,
+            minScaleLimit: 1,
+            maxWidth: canvasWidth,
+            maxHeight: canvasHeight,
+            centeredRotation: true,
+            custom_meta: {
+                "object_type": object_type,
+                "object_id": object_id,
+                "object_name": object_name,
+                "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
+            },
+        });
+    } else {
+        object_height = object_width;
+        text_offset = object_height/2 + 4;
+        rect = new fabric.Image(null, {
+            top: top,
+            name: "rectangle",
+            left: left,
+            width: object_width,
+            height: object_height,
+            opacity: 1,
+            lockRotation: false,
+            originX: "center",
+            originY: "center",
+            cornerSize: 15,
+            hasRotatingPoint: true,
+            perPixelTargetFind: true,
+            minScaleLimit: 1,
+            maxWidth: canvasWidth,
+            maxHeight: canvasHeight,
+            centeredRotation: true,
+            shadow: new fabric.Shadow({
+                color: "red",
+                blur: 15,
+            }),
+            custom_meta: {
+                "object_type": object_type,
+                "object_id": object_id,
+                "object_name": object_name,
+                "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
+            },
+        });
+        rect.setSrc("/media/" + image, function(img){
+            img.scaleX =  object_width / img.width;
+            img.scaleY =  object_height / img.height;
+            canvas.renderAll();
+        });
+    }
+
+    var text = new fabric.Textbox(object_name, {
+        fontFamily: "Courier New",
+        fontSize: 16,
+        fontWeight: "bold",
+        splitByGrapheme: text_offset? null : true,
+        fill: text_color,
+        width: object_width,
+        textAlign: "center",
+        originX: "center",
+        originY: "center",
+        left: left,
+        top: top + text_offset + heightAdjustment,
+        excludeFromExport: false,
+        includeDefaultValues: true,
+        centeredRotation: true,
+        custom_meta: {
+            "text_type": "name",
+        }
+    });
+
+    // Calculate dynamic spacing for all textboxes
+    var currentOffset = text_offset + heightAdjustment;
+    
+    // Add name text height to offset
+    var nameHeight = calculateDynamicTextHeight(object_name, 16, object_width);
+    currentOffset += nameHeight; // Add 6px padding between name and info
+
+    // Ensure role and tenant have default values
+    if(!role) {
+        role = ""
+    }
+    if(!tenant) {
+        tenant = ""
+    }
+
+    var infoText = buildInfoText(status, role, tenant);
+    
+    // Calculate available height for info box (you can adjust this based on your layout needs)
+    var availableHeight = object_height * 0.5; // Use 50% of object height for info text
+    
+    // Use slightly less than full width to ensure padding and prevent overflow
+    var availableWidth = object_width * 0.95; // Use 95% of object width for safety
+    
+    // Calculate optimal font size for the info text
+    var optimalFontSize = calculateOptimalFontSize(infoText, availableWidth, availableHeight, 8, 13);
+
+    var info_box = new fabric.Textbox(infoText, {
+        fontFamily: "Courier New",
+        fontSize: optimalFontSize,
+        fill: text_color,
+        width: object_width,
+        splitByGrapheme: false,
+        breakWords: true,
+        wordWrap: true,
+        borderColor: "6ea8fe",
+        textAlign: "center",
+        originX: "center",
+        left: left,
+        top: top + currentOffset,
+        excludeFromExport: false,
+        includeDefaultValues: true,
+        centeredRotation: true,
+        shadow: text_offset? new fabric.Shadow({
+            color: '#000000',
+            blur: 1
+        }) : null,
+        custom_meta: {
+            "text_type": "info",
+            "status": status,
+            "role": role,
+            "tenant": tenant,
+            "show_status": true,
+            "show_role": true,
+            "show_tenant": true
+        }
+    });
+
+    var group = new fabric.Group([rect, text, info_box]);
+
+    group.custom_meta = {
+        "object_type": object_type,
+        "object_id": object_id,
+        "object_name": object_name,
+        "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
+    }
+    group.setControlsVisibility({
+        mt: false,
+        mb: false,
+        ml: false,
+        mr: false,
+        bl: false,
+        br: false,
+        tl: false,
+        tr: false,
+    })
+
+    if (object_id) {
+        group.set('id', object_id);
+    }
+
+    canvas.add(group);
+    canvas.centerObject(group);
+}
+window.add_floorplan_object_advanced = add_floorplan_object_advanced;
+
+function set_text_color(color) {
+    // Get all active objects (in case of multiple selections)
+    var objects = canvas.getActiveObjects();
+    objects.forEach(object => {
+        if (object) {
+            // If it's a text object, change its color (IText or Textbox)
+            if (object.type == "i-text" || object.type == "textbox") {
+                object.set('fill', color);
+                canvas.renderAll();
+                // Update the color picker to match the selected color
+                document.getElementById("selected_text_color").value = color;
+                return;
+            }
+
+            // If it's a group (like a rack), find and update all text objects within it
+            if (object._objects) {
+                object._objects.forEach(function(obj) {
+                    if (obj.type == "i-text" || obj.type == "textbox") {
+                        obj.set('fill', color);
+                    }
+                });
+
+                // Mark that text color was manually set if this is a rack or device object
+                if (object.custom_meta && (object.custom_meta.object_type === "rack" ||
+                    object.custom_meta.object_type === "device")) {
+                    object.custom_meta.manual_text_color = true;
+                }
+
+                // Update the color picker to match the selected color
+                document.getElementById("selected_text_color").value = color;
+
+            }
+        }
+    });
+    canvas.renderAll();
+}
+
+window.set_text_color = set_text_color;
+
+function toggle_text_visibility(text_type, visible) {
+    // Get all active objects (in case of multiple selections)
+    var objects = canvas.getActiveObjects();
+    objects.forEach(object => {
+        // If there is an object (rack or device) selected
+        if (object && object._objects) {
+            // Find the combined info box
+            object._objects.forEach(function(obj) {
+                if (obj.custom_meta && obj.custom_meta.text_type === "info") {
+                    // Update the visibility flag for the specific text type
+                    obj.custom_meta['show_' + text_type] = visible;
+                    
+                    // Rebuild the text content based on current visibility settings
+                    var infoLines = [];
+                    
+                    if (obj.custom_meta.show_status && obj.custom_meta.status) {
+                        infoLines.push(obj.custom_meta.status);
+                    }
+                    if (obj.custom_meta.show_role && obj.custom_meta.role) {
+                        infoLines.push(obj.custom_meta.role);
+                    }
+                    if (obj.custom_meta.show_tenant && obj.custom_meta.tenant) {
+                        infoLines.push(obj.custom_meta.tenant);
+                    }
+                    
+                    var newText = infoLines.join('\n');
+                    
+                    // Recalculate optimal font size for the new text content
+                    var availableHeight = object.height * 0.5; // Use 50% of object height
+                    var availableWidth = obj.width * 0.95; // Use 95% of object width for safety
+                    var optimalFontSize = calculateOptimalFontSize(newText, availableWidth, availableHeight, 8, 13);
+                    
+                    // Update the text content and font size
+                    obj.set('text', newText);
+                    obj.set('fontSize', optimalFontSize);
+                    
+                    // Hide the entire box if no info is visible
+                    var hasVisibleContent = obj.custom_meta.show_status || obj.custom_meta.show_role || obj.custom_meta.show_tenant;
+                    obj.set('visible', hasVisibleContent && infoLines.length > 0);
+                }
+            });
+            //canvas.renderAll();
+            //save_floorplan();
+        }
+    });
+    canvas.renderAll();
+    save_floorplan();
+}
+window.toggle_text_visibility = toggle_text_visibility;
+
+function update_text_visibility_controls() {
+    // Get all active objects (in case of multiple selections)
+    var objects = canvas.getActiveObjects();
+    objects.forEach(object => {
+        if (object && object._objects) {
+            // Find the combined info box and get visibility settings
+            var statusVisible = true, tenantVisible = true, roleVisible = true;
+            
+            object._objects.forEach(function(obj) {
+                if (obj.custom_meta && obj.custom_meta.text_type === 'info') {
+                    statusVisible = obj.custom_meta.show_status !== false;
+                    tenantVisible = obj.custom_meta.show_tenant !== false;
+                    roleVisible = obj.custom_meta.show_role !== false;
+                }
+            });
+            
+            // Update checkbox state based on current visibility settings
+            document.getElementById('show_status').checked = statusVisible;
+            document.getElementById('show_tenant').checked = tenantVisible;
+            document.getElementById('show_role').checked = roleVisible;
+            
+        } else {
+            // When no object is selected, reset to default state but keep controls enabled
+            document.getElementById('show_status').checked = true;
+            document.getElementById('show_tenant').checked = true;
+            document.getElementById('show_role').checked = true;
+            
+            // Keep all checkboxes enabled when no object is selected
+            document.getElementById('show_status').disabled = false;
+            document.getElementById('show_tenant').disabled = false;
+            document.getElementById('show_role').disabled = false;
+        }
+    });
+}
+window.update_text_visibility_controls = update_text_visibility_controls;
 
 function set_zoom(new_current_zoom) {
     current_zoom = new_current_zoom;
@@ -661,7 +1137,7 @@ function update_dimensions() {
         var text = new fabric.IText(`${obj_name}`, {
             fontFamily: "Courier New",
             fontSize: 16,
-            fill: "#FFFF",
+            fill: "#000000",
             textAlign: "center",
             originX: "center",
             originY: "center",
@@ -675,7 +1151,7 @@ function update_dimensions() {
         var dimensions = new fabric.IText(`${width} ${measurement_unit} (width) x ${height} ${measurement_unit} (height)`, {
             fontFamily: "Courier New",
             fontSize: 8,
-            fill: "#FFFF",
+            fill: "#000000",
             textAlign: "center",
             originX: "center",
             originY: "center",
@@ -828,5 +1304,7 @@ window.save_and_redirect = save_and_redirect;
 // end save floorplan ----------------------------------------------------------------------------- !
 
 // start initialize load ----------------------------------------------------------------------------- !
-document.addEventListener("DOMContentLoaded", init_floor_plan(obj_pk, canvas, "edit"));
+document.addEventListener("DOMContentLoaded", function() {
+    init_floor_plan(obj_pk, canvas, "edit");
+});
 // end initialize load ----------------------------------------------------------------------------- !

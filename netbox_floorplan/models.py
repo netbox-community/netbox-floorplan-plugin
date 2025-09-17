@@ -187,6 +187,10 @@ class Floorplan(NetBoxModel):
         return drawn_devices
 
     def resync_canvas(self):
+        """
+        Synchronize canvas objects with current NetBox data.
+        Handles both advanced mode (role/tenant/status) and original mode (status only) rack displays.
+        """
         changed = False
         if self.canvas:
             if self.canvas.get("objects"):
@@ -202,19 +206,93 @@ class Floorplan(NetBoxModel):
                             else:
                                 rack = rack_qs.first()
                                 self.canvas["objects"][index]["custom_meta"]["object_name"] = rack.name
+
+                                # Update rack fill color based on role (only if not manually set
+                                # and for advanced racks only)
+                                # Check if color was manually set by looking for manual_color flag
+                                color_manually_set = obj["custom_meta"].get("manual_color", False)
+
+                                # Detect if this is an advanced rack by checking for info text type
+                                is_advanced_mode_rack = False
+                                if obj.get("objects"):
+                                    for subobj in obj["objects"]:
+                                        if (subobj.get("type") in ["i-text", "textbox"] and
+                                                subobj.get("custom_meta", {}).get("text_type") == "info"):
+                                            is_advanced_mode_rack = True
+                                            break
+
+                                # Only apply automatic color updates to advanced racks
+                                if not color_manually_set and is_advanced_mode_rack:
+                                    expected_color = None
+                                    if rack.role and hasattr(rack.role, 'color'):
+                                        expected_color = f"#{rack.role.color}"
+                                    else:
+                                        # Default color if no role or color is set
+                                        expected_color = "#000000"
+
+                                    # Check if the rack rectangle color needs updating
+                                    if obj.get("objects") and len(obj["objects"]) > 0:
+                                        rack_rect = obj["objects"][0]  # First object is typically the rack rectangle
+                                        if rack_rect.get("fill") != expected_color:
+                                            self.canvas["objects"][index]["objects"][0]["fill"] = expected_color
+                                            changed = True
+                                # End of rack fill color update
+
                                 if obj.get("objects"):
                                     for subcounter, subobj in enumerate(obj["objects"]):
-                                        if subobj.get("type") == "i-text":
+                                        # Check if the subobject is a rectangle and has custom_meta for rack
+                                        # Update the custom_meta and text fields to match the current rack data
+                                        # in Netbox
+                                        if subobj.get("type") == "rect":
+                                            if subobj.get("custom_meta", {}).get("object_type") == "rack":
+                                                # Make sure the object_name matches the actual rack name
+                                                if subobj["custom_meta"]["object_name"] != f"{rack.name}":
+                                                    self.canvas["objects"][index]["objects"][
+                                                        subcounter]["custom_meta"]["object_name"] = f"{rack.name}"
+                                                    changed = True
+
+                                        # Check if the subobject is a textbox or i-text object. This will have both
+                                        # the rack name and the info text (status, role, tenant for advanced racks
+                                        # or just status for simple racks).
+                                        if subobj.get("type") == "i-text" or subobj.get("type") == "textbox":
+                                            # Update the name text box with the current rack name if it exists
                                             if subobj.get("custom_meta", {}).get("text_type") == "name":
                                                 if subobj["text"] != f"{rack.name}":
                                                     self.canvas["objects"][index]["objects"][
                                                         subcounter]["text"] = f"{rack.name}"
                                                     changed = True
-                                            if subobj.get("custom_meta", {}).get("text_type") == "status":
+                                            # Handle advanced racks combined info text box
+                                            elif subobj.get("custom_meta", {}).get("text_type") == "info":
+                                                # Handle combined info text box (advanced mode)
+                                                rack_role_text = rack.role.name if rack.role else ""
+                                                rack_tenant_text = f"{rack.tenant}" if rack.tenant else ""
+
+                                                # Update stored values in custom_meta
+                                                subobj["custom_meta"]["status"] = f"{rack.status}"
+                                                subobj["custom_meta"]["role"] = rack_role_text
+                                                subobj["custom_meta"]["tenant"] = rack_tenant_text
+
+                                                # Rebuild the combined text based on visibility settings
+                                                info_lines = []
+                                                if subobj["custom_meta"].get("show_status", True):
+                                                    info_lines.append(f"{rack.status}")
+                                                if subobj["custom_meta"].get("show_role", True) and rack_role_text:
+                                                    info_lines.append(rack_role_text)
+                                                if subobj["custom_meta"].get("show_tenant", True) and rack_tenant_text:
+                                                    info_lines.append(rack_tenant_text)
+
+                                                new_text = '\n'.join(info_lines)
+                                                if subobj["text"] != new_text:
+                                                    self.canvas["objects"][index]["objects"][subcounter]["text"] = new_text
+                                                    changed = True
+                                            # Handle simple racks status text box, which only shows status
+                                            elif subobj.get("custom_meta", {}).get("text_type") == "status":
                                                 if subobj["text"] != f"{rack.status}":
                                                     self.canvas["objects"][index]["objects"][
                                                         subcounter]["text"] = f"{rack.status}"
                                                     changed = True
+
+                        # Handle device objects on the canvas
                         if obj["custom_meta"].get("object_type") == "device":
                             device_id = int(obj["custom_meta"]["object_id"])
                             # if device is not in the database, remove it from the canvas
@@ -227,13 +305,45 @@ class Floorplan(NetBoxModel):
                                 self.canvas["objects"][index]["custom_meta"]["object_name"] = device.name
                                 if obj.get("objects"):
                                     for subcounter, subobj in enumerate(obj["objects"]):
-                                        if subobj.get("type") == "i-text":
+                                        # Update device rectangle metadata
+                                        if subobj.get("type") == "rect":
+                                            if subobj.get("custom_meta", {}).get("object_type") == "device":
+                                                # Make sure the object_name matches the actual device name
+                                                if subobj["custom_meta"]["object_name"] != f"{device.name}":
+                                                    self.canvas["objects"][index]["objects"][
+                                                        subcounter]["custom_meta"]["object_name"] = f"{device.name}"
+                                                    changed = True
+                                        # Update device text elements (supports both advanced and simple devices)
+                                        if subobj.get("type") == "i-text" or subobj.get("type") == "textbox":
+
+                                            # Update device name text
                                             if subobj.get("custom_meta", {}).get("text_type") == "name":
                                                 if subobj["text"] != f"{device.name}":
                                                     self.canvas["objects"][index]["objects"][
                                                         subcounter]["text"] = f"{device.name}"
                                                     changed = True
-                                            if subobj.get("custom_meta", {}).get("text_type") == "status":
+                                            # Handle advanced devices combined info text box for devices
+                                            elif subobj.get("custom_meta", {}).get("text_type") == "info":
+                                                # Handle combined info text box for devices (advanced mode)
+                                                device_tenant_text = f"{device.tenant}" if device.tenant else ""
+
+                                                # Update stored values in custom_meta
+                                                subobj["custom_meta"]["status"] = f"{device.status}"
+                                                subobj["custom_meta"]["tenant"] = device_tenant_text
+
+                                                # Rebuild the combined text based on visibility settings
+                                                info_lines = []
+                                                if subobj["custom_meta"].get("show_status", True):
+                                                    info_lines.append(f"{device.status}")
+                                                if subobj["custom_meta"].get("show_tenant", True) and device_tenant_text:
+                                                    info_lines.append(device_tenant_text)
+
+                                                new_text = '\n'.join(info_lines)
+                                                if subobj["text"] != new_text:
+                                                    self.canvas["objects"][index]["objects"][subcounter]["text"] = new_text
+                                                    changed = True
+                                            # Handle 'simple' devices status text box
+                                            elif subobj.get("custom_meta", {}).get("text_type") == "status":
                                                 if subobj["text"] != f"{device.status}":
                                                     self.canvas["objects"][index]["objects"][
                                                         subcounter]["text"] = f"{device.status}"
