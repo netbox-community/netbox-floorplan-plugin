@@ -9,8 +9,8 @@ class FloorplanConfig(PluginConfig):
     description = ""
     version = __version__
     base_url = "floorplan"
-    min_version = "4.4.0"
-    max_version = "4.4.99"
+    min_version = "4.5.0-beta1"
+    max_version = "4.5.99"
 
 
 config = FloorplanConfig
