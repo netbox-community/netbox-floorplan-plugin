@@ -31,6 +31,7 @@ A netbox plugin providing floorplan mapping capability for locations and sites
 | 4.2.x       | 0.6.0     |
 | 4.3.x       | 0.7.0     |
 | 4.4.x       | 0.8.0     |
+| 4.5.x       | 0.9.0     |
 
 ## Installing
 
