@@ -37,6 +37,6 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
-    min_version="4.4.0",
-    max_version="4.4.99"
+    min_version="4.5.0-beta1",
+    max_version="4.5.99"
 )
