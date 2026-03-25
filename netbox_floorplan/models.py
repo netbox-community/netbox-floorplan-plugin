@@ -136,7 +136,10 @@ class Floorplan(NetBoxModel):
         default='m'
     )
 
-    canvas = models.JSONField(default=dict)
+    canvas = models.JSONField(
+        default=dict,
+        blank=True
+    )
 
     class Meta:
         ordering = ('site', 'location', 'assigned_image',
