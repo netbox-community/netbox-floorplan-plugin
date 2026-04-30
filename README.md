@@ -12,7 +12,7 @@ Originally Forked from https://github.com/tbotnz/netbox_floorplan
 ![new-enhancements](/media/new-floorplan-demo.gif)
 
 ## Summary
-A netbox plugin providing floorplan mapping capability for locations and sites
+A [NetBox] (http://netboxlabs.com/oss/netbox/) plugin providing floorplan mapping capability for locations and sites
 
 - provides graphical ability to draw racks & unracked devices on a floorplan
 - support for metadata such as labels, areas, walls, coloring
@@ -22,16 +22,7 @@ A netbox plugin providing floorplan mapping capability for locations and sites
 
 ## Compatibility
 
-| NetBox Version | Plugin Version |
-|-------------|-----------|
-| 3.5         | >= 0.3.2  |
-| 3.6         | >= 0.3.2  |
-| 4.0.x       | 0.4.1     |
-| 4.1.x       | 0.5.0     |
-| 4.2.x       | 0.6.0     |
-| 4.3.x       | 0.7.0     |
-| 4.4.x       | 0.8.0     |
-| 4.5.x       | 0.9.0     |
+See the [compatibility matrix](COMPATIBILITY.md) for supported NetBox versions.
 
 ## Installing
 
