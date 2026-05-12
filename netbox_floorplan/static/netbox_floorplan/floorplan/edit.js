@@ -355,6 +355,7 @@ function add_floorplan_object_simple(top, left, width, height, unit, fill,
             maxWidth: canvasWidth,
             maxHeight: canvasHeight,
             centeredRotation: true,
+            srcFromAttribute: true,
             shadow: new fabric.Shadow({
                 color: "red",
                 blur: 15,
@@ -1009,7 +1010,7 @@ function update_background() {
                 if (floorplan.assigned_image.external_url != "") {
                     img_url = floorplan.assigned_image.external_url;
                 } else {
-                    img_url = floorplan.assigned_image.file;
+                    img_url = (new URL(floorplan.assigned_image.file)).pathname;
                 }
 
                 var img = fabric.Image.fromURL(img_url, function(img) {
@@ -1052,7 +1053,7 @@ function update_background() {
                             originY: 'middle'
                         });
                     }
-                });
+                }, {srcFromAttribute: true});
             
             } else {
                 canvas.setBackgroundImage().renderAll();
