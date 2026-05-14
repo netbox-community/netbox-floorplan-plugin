@@ -1,6 +1,15 @@
 version: 0.1
 package_name: netbox-floorplan-plugin
 compatibility:
+  - release: 1.0.0
+    netbox_min: 4.6.0
+    netbox_max: 4.6.99
+  - release: 0.9.1
+    netbox_min: 4.5.0
+    netbox_max: 4.5.99
+  - release: 0.8.0
+    netbox_min: 4.4.0
+    netbox_max: 4.4.99
   - release: 0.7.0
     netbox_min: 4.3.0
     netbox_max: 4.3.99
