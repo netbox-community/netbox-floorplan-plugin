@@ -13,3 +13,4 @@ class FloorplanViewSet(NetBoxModelViewSet):
 class FloorplanImageViewSet(NetBoxModelViewSet):
     queryset = models.FloorplanImage.objects.prefetch_related('tags')
     serializer_class = FloorplanImageSerializer
+    filterset_class = filtersets.FloorplanImageFilterSet
