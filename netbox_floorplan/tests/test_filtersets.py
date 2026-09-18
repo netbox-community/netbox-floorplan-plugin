@@ -2,8 +2,8 @@ from django.test import TestCase
 
 from dcim.models import Location, Site
 
-from netbox_floorplan.filtersets import FloorplanFilterSet
-from netbox_floorplan.models import Floorplan
+from netbox_floorplan.filtersets import FloorplanFilterSet, FloorplanImageFilterSet
+from netbox_floorplan.models import Floorplan, FloorplanImage
 
 
 class FloorplanFilterSetTestCase(TestCase):
@@ -60,3 +60,40 @@ class FloorplanFilterSetTestCase(TestCase):
     def test_filter_by_id(self):
         fs = FloorplanFilterSet({'id': [self.fp_site_b.pk]}, queryset=self._qs())
         self.assertEqual(list(fs.qs), [self.fp_site_b])
+
+    def test_search_matches_assigned_image_name(self):
+        image = FloorplanImage.objects.create(name='Ground Floor Plan', external_url='https://example.com/a.png')
+        fp = Floorplan.objects.create(site=Site.objects.create(name='Dublin DC', slug='dublin-dc'), assigned_image=image)
+        fs = FloorplanFilterSet({'q': 'Ground Floor'}, queryset=self._qs())
+        self.assertEqual(list(fs.qs), [fp])
+
+
+class FloorplanImageFilterSetTestCase(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.image_a = FloorplanImage.objects.create(
+            name='Warehouse Layout', external_url='https://example.com/warehouse.png', comments='primary site'
+        )
+        cls.image_b = FloorplanImage.objects.create(
+            name='Office Layout', external_url='https://example.com/office.png', comments='secondary site'
+        )
+
+    def _qs(self):
+        return FloorplanImage.objects.all()
+
+    def test_search_matches_name(self):
+        fs = FloorplanImageFilterSet({'q': 'Warehouse'}, queryset=self._qs())
+        self.assertEqual(list(fs.qs), [self.image_a])
+
+    def test_search_matches_external_url(self):
+        fs = FloorplanImageFilterSet({'q': 'office.png'}, queryset=self._qs())
+        self.assertEqual(list(fs.qs), [self.image_b])
+
+    def test_search_matches_comments(self):
+        fs = FloorplanImageFilterSet({'q': 'primary'}, queryset=self._qs())
+        self.assertEqual(list(fs.qs), [self.image_a])
+
+    def test_empty_search_returns_everything(self):
+        fs = FloorplanImageFilterSet({'q': ''}, queryset=self._qs())
+        self.assertEqual(fs.qs.count(), 2)

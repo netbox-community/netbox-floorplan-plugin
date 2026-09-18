@@ -60,7 +60,7 @@ class FloorplanImage(NetBoxModel):
             return None
 
     @property
-    def filename(self):
+    def filename(self) -> str:
         filename = self.file.name.rsplit('/', 1)[-1]
         return filename
 

@@ -90,6 +90,18 @@ for earlier releases.
 
 * **Duplicate `comments` entry** removed from the Floorplan Image form fieldsets.
 
+* **The plugin declared no minimum NetBox version.** `min_version` was left commented out
+  in `FloorplanConfig` after local testing against a pre-release NetBox `feature` build, so
+  NetBox never rejected an incompatible (pre-4.7) installation. It is now set to `4.7.0`,
+  matching `max_version` and the compatibility matrix.
+
+* **Floorplan Images had no REST API filterset**, so `FloorplanImageViewSet` silently
+  ignored every filter parameter, including `?q=`. Added `FloorplanImageFilterSet`,
+  matching against name, external URL and comments.
+
+* **Floorplan search now also matches the assigned image's name**, not just the site or
+  location.
+
 ### Other Changes
 
 * **The object views now use NetBox's declarative UI components instead of templates.** The
@@ -117,6 +129,9 @@ for earlier releases.
   the rack's `RackType` in v5.0. The rack picker now resolves them from the `RackType`,
   falling back to the Rack's own fields, so it keeps working once the fields are removed.
   `rack_type` was added to the picker's `select_related()` to avoid a query per row.
+
+* **`FloorplanImage.filename` is now annotated as returning `str`**, silencing
+  drf-spectacular type-hint warnings emitted during OpenAPI schema generation.
 
 * **Renamed the vendored Fabric.js build to match its actual version.** The file was named
   `fabric-js-6.0.2.js` but contained 5.2.1, which is materially misleading: Fabric v6 replaced
