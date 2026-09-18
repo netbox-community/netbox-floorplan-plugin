@@ -1,6 +1,6 @@
 # Installation
 
-Unlike many NetBox plugins, this one adds models, so installing it requires running migrations and collecting static files. It has no configuration parameters.
+Unlike many NetBox plugins, this one adds models, so installing it requires running migrations and collecting static files. It has one optional configuration parameter; see [Configuration](#configuration) below.
 
 !!! note
     Check the [compatibility matrix](https://github.com/netbox-community/netbox-floorplan-plugin/blob/main/COMPATIBILITY.md) before installing, and choose a plugin release which supports your NetBox version.
@@ -40,7 +40,23 @@ PLUGINS = [
 !!! note
     If there are no plugins already installed, you might need to create this parameter. If so, be sure to define `PLUGINS` as a list _containing_ the plugin name as above, rather than just the name.
 
-There is nothing to add to `PLUGINS_CONFIG` — the plugin has no settings.
+There is nothing required in `PLUGINS_CONFIG`. See [Configuration](#configuration) below for the one optional setting.
+
+## Configuration
+
+`netbox_floorplan` supports one optional setting, under its own key in `PLUGINS_CONFIG`:
+
+| Setting | Default | Description |
+|---|---|---|
+| `top_level_menu` | `False` | Register a dedicated top-level "Floorplan" menu instead of nesting "Floorplan Images" under NetBox's shared "Plugins" menu. |
+
+```python
+PLUGINS_CONFIG = {
+    "netbox_floorplan": {
+        "top_level_menu": True,
+    },
+}
+```
 
 ## 4. Run Migrations
 
@@ -81,7 +97,7 @@ Restart the NetBox services to load the plugin:
 sudo systemctl restart netbox netbox-rq
 ```
 
-A **Floor Plan** tab should now appear on site and location detail views, and a **Netbox Floorplan** section should appear in the Plugins menu.
+A **Floor Plan** tab should now appear on site and location detail views, and a **Netbox Floorplan** section should appear in the Plugins menu — or as its own top-level **Floorplan** menu, if `top_level_menu` is enabled.
 
 ## Upgrading
 

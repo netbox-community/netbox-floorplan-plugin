@@ -17,6 +17,13 @@ for earlier releases.
   declared no `brief_fields`. It now returns `id`, `url` and `display`. Clients relying on
   `?brief=1` returning full objects must drop the parameter.
 
+### Features
+
+* **Added an optional `top_level_menu` setting** ([#104](https://github.com/netbox-community/netbox-floorplan-plugin/issues/104)).
+  Setting `PLUGINS_CONFIG['netbox_floorplan']['top_level_menu'] = True` registers a
+  dedicated top-level "Floorplan" menu instead of nesting "Floorplan Images" under
+  NetBox's shared "Plugins" menu. Defaults to `False`, preserving current behaviour.
+
 ### Bug Fixes
 
 * **The floorplan image detail page no longer renders a broken link.** Its first row printed

@@ -4,7 +4,7 @@
 
 `netbox-floorplan-plugin` is a NetBox plugin that adds spatial floorplans to sites and locations. A **floorplan** is a canvas on which racks and unracked devices are placed, so that the drawing reflects where equipment physically sits within a room. Each placed object references the NetBox record it represents, and is reconciled against NetBox every time the floorplan is viewed.
 
-The plugin has real models and migrations, UI views, a REST API, and a substantial browser-side editor built on Fabric.js. It has **no configuration parameters** — nothing goes in `PLUGINS_CONFIG` — and no GraphQL API. The supported NetBox range is in `COMPATIBILITY.md`.
+The plugin has real models and migrations, UI views, a REST API, and a substantial browser-side editor built on Fabric.js. It has no GraphQL API. It declares one optional `PLUGINS_CONFIG` setting, `top_level_menu` (see `netbox_floorplan/navigation.py`) — resist adding others for things that belong on the model. The supported NetBox range is in `COMPATIBILITY.md`.
 
 ## Tech Stack
 
@@ -30,15 +30,18 @@ The plugin declares **no** `install_requires`. Defer version pins to `setup.py` 
 ```text
 .
 ├── netbox_floorplan/
-│   ├── __init__.py              — FloorplanConfig (PluginConfig): NetBox min/max version.
-│   │                              No default_settings; the plugin has no settings.
+│   ├── __init__.py              — FloorplanConfig (PluginConfig): NetBox min/max version,
+│   │                              default_settings (top_level_menu).
 │   ├── models.py                — Floorplan and FloorplanImage. Holds resync_canvas().
 │   ├── views.py                 — Generic views for FloorplanImage, plus bare Views for the
 │   │                              canvas editor and the add-by-query-param flow, plus the
 │   │                              Site/Location tab views.
 │   ├── forms.py, tables.py, filtersets.py
 │   ├── urls.py                  — Explicit paths plus get_model_urls() for FloorplanImage.
-│   ├── navigation.py            — Plugin menu (Floorplan Images only).
+│   ├── navigation.py            — Plugin menu (Floorplan Images only). Reads the
+│   │                              top_level_menu setting to choose between a dedicated
+│   │                              PluginMenu (`menu`) and NetBox's shared Plugins menu
+│   │                              (`menu_items`).
 │   ├── utils.py                 — file_upload() path helper.
 │   ├── templatetags/
 │   │   └── template_utils.py    — denormalize_measurement, js_str, rack_outer_js.
@@ -206,7 +209,7 @@ Remember that the canvas document is persisted, so a change to the structure the
 - **Changelog.** User-visible changes get an entry in the root `CHANGELOG.md`. Do not edit `docs/changelog.md` — it is a one-line `pymdownx.snippets` include (`--8<-- "CHANGELOG.md"`) so there is a single source of truth.
 - **Never read deprecated NetBox fields directly.** See Architecture.
 - **Never interpolate values into JavaScript without `js_str`.** See Architecture.
-- **The plugin has no settings.** Resist adding `PLUGINS_CONFIG` options for things that belong on the model.
+- **The plugin has one setting, `top_level_menu`.** Resist adding further `PLUGINS_CONFIG` options for things that belong on the model.
 - **`display` and `brief_fields`** belong on every serializer. A brief representation with no human-readable label is not useful.
 
 ## Troubleshooting
