@@ -196,5 +196,5 @@ SHORT_TIME_FORMAT = os.environ.get("SHORT_TIME_FORMAT", "H:i:s")
 DATETIME_FORMAT = os.environ.get("DATETIME_FORMAT", "N j, Y g:i a")
 SHORT_DATETIME_FORMAT = os.environ.get("SHORT_DATETIME_FORMAT", "Y-m-d H:i")
 API_TOKEN_PEPPERS = {
-  1: '=Qy+F=OTeGskWQ(wTMgjc+NPPlz6YwFXY=KHIIg=wpYXT&e(6u8'
+    1: '=Qy+F=OTeGskWQ(wTMgjc+NPPlz6YwFXY=KHIIg=wpYXT&e(6u8'
 }
