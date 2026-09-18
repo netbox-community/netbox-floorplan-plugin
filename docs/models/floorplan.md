@@ -108,3 +108,5 @@ The floorplan is saved only if something actually changed.
 Standard NetBox object permissions apply: `netbox_floorplan.view_floorplan`, `add_floorplan`, `change_floorplan`, and `delete_floorplan`.
 
 Viewing the **Floor Plan** tab on a site or location additionally requires the relevant `dcim.view_site` or `dcim.view_location` permission.
+
+The canvas editor requires `change_floorplan`, regardless of who created the floorplan. The Add, Edit and Delete Floorplan buttons on the tab are hidden unless the viewer holds the corresponding permission.

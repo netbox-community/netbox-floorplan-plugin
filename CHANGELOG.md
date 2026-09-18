@@ -24,6 +24,20 @@ for earlier releases.
   dedicated top-level "Floorplan" menu instead of nesting "Floorplan Images" under
   NetBox's shared "Plugins" menu. Defaults to `False`, preserving current behaviour.
 
+### Security
+
+* **A user with only view permission on Floorplan could open the canvas editor**
+  ([#94](https://github.com/netbox-community/netbox-floorplan-plugin/issues/94)).
+  `FloorplanMapEditView` only required login, not `change_floorplan` — its
+  `permission_required` attribute was never consulted because the view inherited
+  `LoginRequiredMixin` rather than `PermissionRequiredMixin`, and even so referenced a
+  permission codename, `edit_floorplan`, that does not exist. The editor now requires
+  `netbox_floorplan.change_floorplan`, and the Add/Edit/Delete Floorplan buttons on the
+  site/location tab are hidden unless the viewer holds the corresponding permission.
+  Saving and deleting were already enforced correctly server-side, via the REST API and
+  NetBox's generic delete view respectively; this closes the gap that let an
+  unauthorized user reach the editor UI at all.
+
 ### Bug Fixes
 
 * **The floorplan image detail page no longer renders a broken link.** Its first row printed

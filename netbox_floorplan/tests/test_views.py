@@ -128,10 +128,25 @@ class FloorplanEditorViewTestCase(TestCase):
         cls.floorplan = Floorplan.objects.create(site=cls.site)
 
     def test_editor_renders(self):
+        self.add_permissions('netbox_floorplan.change_floorplan')
         response = self.client.get(
             reverse('plugins:netbox_floorplan:floorplan_edit', args=[self.floorplan.pk])
         )
         self.assertHttpStatus(response, 200)
+
+    def test_editor_requires_change_permission(self):
+        response = self.client.get(
+            reverse('plugins:netbox_floorplan:floorplan_edit', args=[self.floorplan.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_view_permission_alone_is_not_sufficient(self):
+        # A user who can only view floorplans must not be able to open the editor.
+        self.add_permissions('netbox_floorplan.view_floorplan')
+        response = self.client.get(
+            reverse('plugins:netbox_floorplan:floorplan_edit', args=[self.floorplan.pk])
+        )
+        self.assertEqual(response.status_code, 403)
 
 
 class FloorplanTabsTestCase(TestCase):
@@ -153,6 +168,27 @@ class FloorplanTabsTestCase(TestCase):
         self.add_permissions('dcim.view_location', 'netbox_floorplan.view_floorplan')
         response = self.client.get(reverse('dcim:location_floorplans', args=[self.location.pk]))
         self.assertHttpStatus(response, 200)
+
+    def test_view_only_user_sees_no_edit_or_delete_controls(self):
+        self.add_permissions('dcim.view_site', 'netbox_floorplan.view_floorplan')
+        response = self.client.get(reverse('dcim:site_floorplans', args=[self.site.pk]))
+        content = response.content.decode()
+        self.assertNotIn('Edit Floorplan', content)
+        self.assertNotIn('Delete Floorplan', content)
+
+    def test_user_with_change_permission_sees_edit_control(self):
+        self.add_permissions(
+            'dcim.view_site', 'netbox_floorplan.view_floorplan', 'netbox_floorplan.change_floorplan'
+        )
+        response = self.client.get(reverse('dcim:site_floorplans', args=[self.site.pk]))
+        self.assertIn('Edit Floorplan', response.content.decode())
+
+    def test_user_with_delete_permission_sees_delete_control(self):
+        self.add_permissions(
+            'dcim.view_site', 'netbox_floorplan.view_floorplan', 'netbox_floorplan.delete_floorplan'
+        )
+        response = self.client.get(reverse('dcim:site_floorplans', args=[self.site.pk]))
+        self.assertIn('Delete Floorplan', response.content.decode())
 
 
 class FloorplanObjectListViewsTestCase(TestCase):
@@ -194,6 +230,7 @@ class MediaUrlExposureTestCase(TestCase):
 
     def test_editor_publishes_media_url(self):
         from django.conf import settings
+        self.add_permissions('netbox_floorplan.change_floorplan')
         response = self.client.get(
             reverse('plugins:netbox_floorplan:floorplan_edit', args=[self.floorplan.pk])
         )
@@ -204,6 +241,7 @@ class MediaUrlExposureTestCase(TestCase):
 
     def test_media_url_is_published_before_the_module_script(self):
         # The module reads the global at import time, so ordering matters.
+        self.add_permissions('netbox_floorplan.change_floorplan')
         response = self.client.get(
             reverse('plugins:netbox_floorplan:floorplan_edit', args=[self.floorplan.pk])
         )
@@ -302,6 +340,7 @@ class VendoredAssetsTestCase(TestCase):
         self.assertIn(version, self.FABRIC)
 
     def test_editor_references_the_vendored_fabric(self):
+        self.add_permissions('netbox_floorplan.change_floorplan')
         response = self.client.get(
             reverse('plugins:netbox_floorplan:floorplan_edit', args=[self.floorplan.pk])
         )
