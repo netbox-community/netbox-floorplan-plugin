@@ -2,7 +2,7 @@ from netbox.views import generic
 from . import forms, models, tables
 from .ui import panels
 from dcim.models import Site, Rack, Device, Location
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.views import View
 from django.shortcuts import render, redirect
 from django.db.models import Q
@@ -121,8 +121,8 @@ class FloorplanDeleteView(generic.ObjectDeleteView):
     queryset = models.Floorplan.objects.all()
 
 
-class FloorplanMapEditView(LoginRequiredMixin, View):
-    permission_required = "netbox_floorplan.edit_floorplan"
+class FloorplanMapEditView(PermissionRequiredMixin, View):
+    permission_required = "netbox_floorplan.change_floorplan"
 
     def get(self, request, pk):
         fp = models.Floorplan.objects.get(pk=pk)
