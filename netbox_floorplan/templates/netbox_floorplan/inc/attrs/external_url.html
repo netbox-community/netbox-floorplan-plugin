@@ -1,0 +1,6 @@
+{% load helpers %}
+{% if object.external_url %}
+    <a href="{{ object.external_url }}" target="_blank" rel="noopener">{{ object.external_url }}</a>
+{% else %}
+    {{ ''|placeholder }}
+{% endif %}

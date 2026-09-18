@@ -10,7 +10,7 @@ class FloorplanImageForm(NetBoxModelForm):
     comments = CommentField()
 
     fieldsets = (
-        FieldSet(('name', 'file', 'external_url', 'comments'), name='General'),
+        FieldSet(('name', 'file', 'external_url'), name='General'),
         FieldSet(('comments', 'tags'), name='')
     )
 
@@ -19,7 +19,8 @@ class FloorplanImageForm(NetBoxModelForm):
         fields = [
             'name',
             'file',
-            'external_url'
+            'external_url',
+            'comments',
         ]
 
 

@@ -48,14 +48,18 @@ class FloorplanRackTable(NetBoxTable):
         verbose_name="Role"
     )
 
+    # The outer dimensions are read through the rack_outer_js filter rather than directly
+    # off the Rack, because Rack.outer_width / outer_depth / outer_unit are deprecated in
+    # NetBox 4.7 and are to be inferred from the rack's RackType in v5.0.
     actions = tables.TemplateColumn(template_code="""
+    {% load template_utils %}
     <div class="btn-group" role="group">
         {% if record.role and record.role.color %}
-        <a type="button" class="btn btn-sm btn-outline-secondary" onclick="add_floorplan_object_simple(300, 500, {% if record.outer_width %}{{ record.outer_width }}{% else %}null{% endif %}, {% if record.outer_depth %}{{ record.outer_depth }}{% else %}null{% endif %}, {% if record.outer_unit %}'{{ record.outer_unit }}'{% else %}null{% endif %}, '#000000', 30, '{{ record.id }}', '{{ record.name }}', 'rack', '{{ record.status }}', null)">Simple<br>Rack</a>
-        <a type="button" class="btn btn-sm btn-outline-info ms-1" onclick="add_floorplan_object_advanced(300, 500, {% if record.outer_width %}{{ record.outer_width }}{% else %}null{% endif %}, {% if record.outer_depth %}{{ record.outer_depth }}{% else %}null{% endif %}, {% if record.outer_unit %}'{{ record.outer_unit }}'{% else %}null{% endif %}, '#{{ record.role.color }}', 30, '{{ record.id }}', '{{ record.name }}', 'rack', '{{ record.status }}', {% if record.tenant %}'{{ record.tenant }}'{% else %}null{% endif %}, '{{ record.role.name }}', null, '#000000')">Advanced<br>Rack</a>
+        <a type="button" class="btn btn-sm btn-outline-secondary" onclick="add_floorplan_object_simple(300, 500, {{ record|rack_outer_js:'width' }}, {{ record|rack_outer_js:'depth' }}, {{ record|rack_outer_js:'unit' }}, '#000000', 30, {{ record.id|js_str }}, {{ record.name|js_str }}, 'rack', {{ record.status|js_str }}, null)">Simple<br>Rack</a>
+        <a type="button" class="btn btn-sm btn-outline-info ms-1" onclick="add_floorplan_object_advanced(300, 500, {{ record|rack_outer_js:'width' }}, {{ record|rack_outer_js:'depth' }}, {{ record|rack_outer_js:'unit' }}, '#{{ record.role.color }}', 30, {{ record.id|js_str }}, {{ record.name|js_str }}, 'rack', {{ record.status|js_str }}, {% if record.tenant %}{{ record.tenant|js_str }}{% else %}null{% endif %}, {{ record.role.name|js_str }}, null, '#000000')">Advanced<br>Rack</a>
         {% else %}
-        <a type="button" class="btn btn-sm btn-outline-secondary" onclick="add_floorplan_object_simple(300, 500, {% if record.outer_width %}{{ record.outer_width }}{% else %}null{% endif %}, {% if record.outer_depth %}{{ record.outer_depth }}{% else %}null{% endif %}, {% if record.outer_unit %}'{{ record.outer_unit }}'{% else %}null{% endif %}, '#000000', 30, '{{ record.id }}', '{{ record.name }}', 'rack', '{{ record.status }}', null)">Simple<br>Rack</a>
-        <a type="button" class="btn btn-sm btn-outline-info ms-1" onclick="add_floorplan_object_advanced(300, 500, {% if record.outer_width %}{{ record.outer_width }}{% else %}null{% endif %}, {% if record.outer_depth %}{{ record.outer_depth }}{% else %}null{% endif %}, {% if record.outer_unit %}'{{ record.outer_unit }}'{% else %}null{% endif %}, '#000000', 30, '{{ record.id }}', '{{ record.name }}', 'rack', '{{ record.status }}', {% if record.tenant %}'{{ record.tenant }}'{% else %}null{% endif %}, 'None', null, '#000000')">Advanced<br>Rack</a>
+        <a type="button" class="btn btn-sm btn-outline-secondary" onclick="add_floorplan_object_simple(300, 500, {{ record|rack_outer_js:'width' }}, {{ record|rack_outer_js:'depth' }}, {{ record|rack_outer_js:'unit' }}, '#000000', 30, {{ record.id|js_str }}, {{ record.name|js_str }}, 'rack', {{ record.status|js_str }}, null)">Simple<br>Rack</a>
+        <a type="button" class="btn btn-sm btn-outline-info ms-1" onclick="add_floorplan_object_advanced(300, 500, {{ record|rack_outer_js:'width' }}, {{ record|rack_outer_js:'depth' }}, {{ record|rack_outer_js:'unit' }}, '#000000', 30, {{ record.id|js_str }}, {{ record.name|js_str }}, 'rack', {{ record.status|js_str }}, {% if record.tenant %}{{ record.tenant|js_str }}{% else %}null{% endif %}, 'None', null, '#000000')">Advanced<br>Rack</a>
         {% endif %}
     </div>
     """, orderable=False)
@@ -80,9 +84,10 @@ class FloorplanDeviceTable(NetBoxTable):
     embedded = True
 
     actions = tables.TemplateColumn(template_code="""
+    {% load template_utils %}
     <div class="btn-group" role="group">
-        <a type="button" class="btn btn-sm btn-outline-secondary" onclick="add_floorplan_object_simple(30, 50, 60, 60, null, '#000000', 30, '{{ record.id }}', '{{ record.name }}', 'device', '{{ record.status }}', {% if record.device_type.front_image %}'{{ record.device_type.front_image }}'{% else %}null{% endif %})">Simple<br>Device</a>
-        <a type="button" class="btn btn-sm btn-outline-info ms-1" onclick="add_floorplan_object_advanced(30, 50, 60, 60, null, '#000000', 30, '{{ record.id }}', '{{ record.name }}', 'device', '{{ record.status }}', {% if record.tenant %}'{{ record.tenant }}'{% else %}null{% endif %}, null, {% if record.device_type.front_image %}'{{ record.device_type.front_image }}'{% else %}null{% endif %}, '#6ea8fe')">Advanced<br>Device</a>
+        <a type="button" class="btn btn-sm btn-outline-secondary" onclick="add_floorplan_object_simple(30, 50, 60, 60, null, '#000000', 30, {{ record.id|js_str }}, {{ record.name|js_str }}, 'device', {{ record.status|js_str }}, {% if record.device_type.front_image %}{{ record.device_type.front_image.url|js_str }}{% else %}null{% endif %})">Simple<br>Device</a>
+        <a type="button" class="btn btn-sm btn-outline-info ms-1" onclick="add_floorplan_object_advanced(30, 50, 60, 60, null, '#000000', 30, {{ record.id|js_str }}, {{ record.name|js_str }}, 'device', {{ record.status|js_str }}, {% if record.tenant %}{{ record.tenant|js_str }}{% else %}null{% endif %}, null, {% if record.device_type.front_image %}{{ record.device_type.front_image.url|js_str }}{% else %}null{% endif %}, '#6ea8fe')">Advanced<br>Device</a>
     </div>
     """, orderable=False)
 

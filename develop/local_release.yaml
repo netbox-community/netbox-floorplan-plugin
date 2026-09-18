@@ -1,0 +1,14 @@
+# Development-environment version override.
+#
+# NETBOX_VER defaults to NetBox's `feature` branch, which continues to report the
+# previous release in its release.yaml until the 4.7 release is cut. This plugin declares
+# min_version = 4.7.0, so without an override NetBox refuses to load it:
+#
+#   Unable to load plugin netbox_floorplan: Plugin netbox_floorplan requires NetBox
+#   minimum version 4.7.0 (current: 4.6.8).
+#
+# NetBox overlays local/release.yaml onto release.yaml (see netbox/utilities/release.py),
+# so declaring the version here makes the pre-release branch identify as 4.7.0 for the
+# purposes of the plugin compatibility check. Remove this once a real 4.7 tag exists and
+# NETBOX_VER points at it.
+version: "4.7.0"

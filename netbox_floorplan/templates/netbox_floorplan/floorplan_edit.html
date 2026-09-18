@@ -6,7 +6,7 @@
 
 {% block head %}
 {{ block.super }}
-<script src="{% static 'netbox_floorplan/vendors/fabric-js-6.0.2.js' %}"></script>
+<script src="{% static 'netbox_floorplan/vendors/fabric-js-5.2.1.js' %}"></script>
 <script src="{% static 'netbox_floorplan/vendors/jquery-3.7.1.js' %}"></script>
 <script src="{% static 'netbox_floorplan/vendors/htmx.min.js' %}"></script>
 
@@ -291,6 +291,10 @@
     </div>
 </div>
 
+<script>
+  // MEDIA_URL from NetBox settings, so the canvas does not have to assume /media/.
+  window.NETBOX_MEDIA_URL = "{{ MEDIA_URL|escapejs }}";
+</script>
 <script type="module" src="{% static 'netbox_floorplan/floorplan/edit.js' %}"></script>
 
 {% endblock content %}

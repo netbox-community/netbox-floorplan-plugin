@@ -1,0 +1,6 @@
+{% load helpers %}
+{% if object.file %}
+    <a href="{{ object.file.url }}" target="_blank" rel="noopener">{{ object.filename }}</a>
+{% else %}
+    {{ ''|placeholder }}
+{% endif %}

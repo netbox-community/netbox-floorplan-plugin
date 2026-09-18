@@ -1,0 +1,3 @@
+{% load helpers %}
+{# `size` is None when the file is missing or the storage back-end cannot be reached. #}
+{% if object.size %}{{ object.size|filesizeformat }}{% else %}{{ ''|placeholder }}{% endif %}

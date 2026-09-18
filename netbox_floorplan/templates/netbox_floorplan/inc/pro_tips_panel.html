@@ -1,0 +1,10 @@
+{% extends 'ui/panels/_base.html' %}
+
+{# Panel wrapper around the shared pro tips fragment, which the editor page also includes #}
+{# directly. Kept separate so the fragment itself stays reusable in both places. #}
+
+{% block panel_content %}
+    <div class="card-body">
+        {% include 'netbox_floorplan/inc/pro_tips.html' %}
+    </div>
+{% endblock panel_content %}

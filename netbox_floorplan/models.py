@@ -46,7 +46,7 @@ class FloorplanImage(NetBoxModel):
         Wrapper around `document.size` to suppress an OSError in case the file is inaccessible. Also opportunistically
         catch other exceptions that we know other storage back-ends to throw.
         """
-        expected_exceptions = [OSError]
+        expected_exceptions = [OSError, ValueError]
 
         try:
             from botocore.exceptions import ClientError
@@ -56,11 +56,11 @@ class FloorplanImage(NetBoxModel):
 
         try:
             return self.file.size
-        except NameError:
+        except tuple(expected_exceptions):
             return None
 
     @property
-    def filename(self):
+    def filename(self) -> str:
         filename = self.file.name.rsplit('/', 1)[-1]
         return filename
 
@@ -354,12 +354,26 @@ class Floorplan(NetBoxModel):
         if changed:
             self.save()
 
-    def save(self, *args, **kwargs):
+    def clean(self):
+        super().clean()
+
+        # A floorplan is assigned to exactly one of a site or a location. Validating here
+        # as well as in save() means forms and the REST API report this as a field error
+        # rather than raising an unhandled exception.
         if self.site and self.location:
-            raise ValueError(
+            raise ValidationError(
                 "Only one of site or location can be set for a floorplan")
-        # ensure that the site or location is set
         if not self.site and not self.location:
-            raise ValueError(
+            raise ValidationError(
+                "Either site or location must be set for a floorplan")
+
+    def save(self, *args, **kwargs):
+        # Retained as a backstop for code paths which build a Floorplan directly and
+        # never run clean(), so an invalid row can still never reach the database.
+        if self.site and self.location:
+            raise ValidationError(
+                "Only one of site or location can be set for a floorplan")
+        if not self.site and not self.location:
+            raise ValidationError(
                 "Either site or location must be set for a floorplan")
         super().save(*args, **kwargs)

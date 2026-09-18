@@ -12,7 +12,8 @@ import {
     start_pan,
     move_pan,
     reset_zoom,
-    init_floor_plan
+    init_floor_plan,
+    floorplan_image_url
 } from "/static/netbox_floorplan/floorplan/utils.js";
 
 
@@ -355,6 +356,9 @@ function add_floorplan_object_simple(top, left, width, height, unit, fill,
             maxWidth: canvasWidth,
             maxHeight: canvasHeight,
             centeredRotation: true,
+            // Serialise the src as set (a /media/... path) rather than the absolute URL the
+            // browser resolves it to, so saved floorplans survive a hostname change.
+            srcFromAttribute: true,
             shadow: new fabric.Shadow({
                 color: "red",
                 blur: 15,
@@ -366,7 +370,7 @@ function add_floorplan_object_simple(top, left, width, height, unit, fill,
                 "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
             },
         });
-        rect.setSrc("/media/" + image, function(img){
+        rect.setSrc(image, function(img){
             img.scaleX =  object_width / img.width;
             img.scaleY =  object_height / img.height;
             canvas.renderAll();
@@ -695,6 +699,9 @@ function add_floorplan_object_advanced(top, left, width, height, unit, fill, rot
             maxWidth: canvasWidth,
             maxHeight: canvasHeight,
             centeredRotation: true,
+            // Serialise the src as set (a /media/... path) rather than the absolute URL the
+            // browser resolves it to, so saved floorplans survive a hostname change.
+            srcFromAttribute: true,
             shadow: new fabric.Shadow({
                 color: "red",
                 blur: 15,
@@ -706,7 +713,7 @@ function add_floorplan_object_advanced(top, left, width, height, unit, fill, rot
                 "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
             },
         });
-        rect.setSrc("/media/" + image, function(img){
+        rect.setSrc(image, function(img){
             img.scaleX =  object_width / img.width;
             img.scaleY =  object_height / img.height;
             canvas.renderAll();
@@ -1005,12 +1012,7 @@ function update_background() {
         }
     }).done(function (floorplan) {
             if (floorplan.assigned_image != null) {
-                var img_url = "";
-                if (floorplan.assigned_image.external_url != "") {
-                    img_url = floorplan.assigned_image.external_url;
-                } else {
-                    img_url = floorplan.assigned_image.file;
-                }
+                var img_url = floorplan_image_url(floorplan.assigned_image);
 
                 var img = fabric.Image.fromURL(img_url, function(img) {
     

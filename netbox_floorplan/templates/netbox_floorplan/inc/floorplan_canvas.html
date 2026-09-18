@@ -1,0 +1,47 @@
+{% extends 'ui/panels/_base.html' %}
+{% load i18n %}
+
+{# The floorplan canvas, rendered as a panel by TemplatePanel. A canvas driven by Fabric.js #}
+{# has no declarative equivalent, so this stays a template; everything around it — the page #}
+{# chrome, breadcrumbs and tab strip — comes from the layout on the view. TemplatePanel #}
+{# supplies the panel's whole template, hence extending the panel base to keep the card. #}
+
+{% block panel_content %}
+    <div class="card-body" id="content-container">
+        <div class="row">
+            <div class="text-end">
+                {% if floorplan is None %}
+                    <a class="btn btn-primary"
+                       href="{% url 'plugins:netbox_floorplan:floorplan_add' %}?{% if record_type == 'site' %}site{% else %}location{% endif %}={{ object.id }}">
+                        <i class="mdi mdi-plus-thick" aria-hidden="true"></i>
+                        {% trans "Add Floorplan" %}
+                    </a>
+                {% else %}
+                    <input type="hidden" id="floorplan_id" value="{{ floorplan.id }}">
+                    <a class="btn btn-outline-success" id="export_svg">{% trans "Export SVG" %}</a>
+                    <a class="btn btn-warning"
+                       href="{% url 'plugins:netbox_floorplan:floorplan_edit' pk=floorplan.id %}">
+                        <span class="mdi mdi-pencil" aria-hidden="true"></span>
+                        {% trans "Edit Floorplan" %}
+                    </a>
+                    <a class="btn btn-danger"
+                       href="#"
+                       hx-get="{% url 'plugins:netbox_floorplan:floorplan_delete' pk=floorplan.id %}"
+                       hx-target="#htmx-modal-content"
+                       data-bs-toggle="modal"
+                       data-bs-target="#htmx-modal">
+                        <span class="mdi mdi-trash-can-outline" aria-hidden="true"></span>
+                        {% trans "Delete Floorplan" %}
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <br>
+        <div class="row">
+            <div id="drawing">
+                <canvas id="canvas" style="border:1px solid #000000;"></canvas>
+            </div>
+        </div>
+        <br>
+    </div>
+{% endblock panel_content %}
