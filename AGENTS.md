@@ -11,14 +11,14 @@ The plugin has real models and migrations, UI views, a REST API, and a substanti
 - Python (defer to `setup.py`; currently `>=3.12`)
 - NetBox (host app — minimum and maximum versions are pinned in `netbox_floorplan/__init__.py`)
 - Django + Django REST Framework (provided by NetBox)
-- [Fabric.js](http://fabricjs.com/) **5.2.1** — the canvas library, vendored at
-  `static/netbox_floorplan/vendors/fabric-js-5.2.1.js`, along with jQuery and htmx.
-  Consult the **v5** documentation: the callback APIs the plugin relies on
-  (`loadFromJSON(json, callback, reviver)`, `fabric.Image.fromURL(url, callback)`,
-  `setBackgroundImage(img, callback, options)`) were all replaced by promises in v6, so v6 docs
-  give systematically wrong answers. The file was previously misnamed `fabric-js-6.0.2.js`
-  despite containing 5.2.1; verify the version in the file itself (`var fabric={version:"…"}`
-  on line 1) rather than trusting the filename.
+- [Fabric.js](http://fabricjs.com/) **7.4.0** — the canvas library, vendored at
+  `static/netbox_floorplan/vendors/fabric-js-7.4.0.js` (the UMD build, which exposes a global
+  `fabric`), along with jQuery and htmx. Consult the **v7** documentation. Differences that
+  matter here: `loadFromJSON`, `Image.fromURL` and `setSrc` return promises; `toJSON()` takes no
+  arguments, so save with `canvas.toObject([...])` (see `canvas_to_json` in `utils.js`) or
+  `custom_meta` is lost; `object.type` still reports `"i-text"` / `"textbox"` in memory but the
+  stored JSON says `"IText"` / `"Textbox"` (so Python must normalise); objects default to a centred origin, so groups set `originX/Y` explicitly.
+  Verify the version in the file itself rather than trusting the filename.
 - Django's test runner via NetBox (`manage.py test netbox_floorplan`), run inside Docker
 - flake8 for lint (config split across `.flake8` and `setup.cfg`)
 - mkdocs + mkdocs-material for user-facing docs

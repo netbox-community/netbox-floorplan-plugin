@@ -11,8 +11,32 @@ export {
     start_pan,
     move_pan,
     init_floor_plan,
-    floorplan_image_url
+    floorplan_image_url,
+    apply_background,
+    canvas_to_json,
+    is_itext,
+    is_text
 };
+
+// Properties that must survive serialisation. Fabric 7's canvas.toJSON() takes no arguments and
+// drops them; toObject() is the call that honours the list. models.py depends on custom_meta
+// to reconcile racks and devices, so losing it silently unlinks every placed object.
+const CANVAS_PROPS = ["id", "text", "_controlsVisibility", "custom_meta", "lockMovementY", "lockMovementX", "evented", "selectable"];
+
+function canvas_to_json(canvas) {
+    return canvas.toObject(CANVAS_PROPS);
+}
+
+
+// Fabric 7 keeps reporting the Fabric 5 spellings from object.type ("i-text", "textbox") even
+// though it serialises the class name ("IText"), so test the in-memory type, not the stored one.
+function is_itext(object) {
+    return object.type === "i-text";
+}
+
+function is_text(object) {
+    return is_itext(object) || object.type === "textbox";
+}
 
 
 function resize_canvas(canvas, window) {
@@ -22,8 +46,7 @@ function resize_canvas(canvas, window) {
     var window_height = $(window).height();
     var canvas_width = window_width;
     var canvas_height = window_height - 100;
-    canvas.setWidth(canvas_width);
-    canvas.setHeight(canvas_height);
+    canvas.setDimensions({ width: canvas_width, height: canvas_height });
 //    canvas.backgroundImage.scaleToWidth(canvas_width);
 //    canvas.backgroundImage.scaleToHeight(canvas_height);
     canvas.renderAll();
@@ -97,7 +120,7 @@ function updateColorPickers() {
     
     if (object) {
         // For single text objects
-        if (object.type === "i-text" || object.type === "textbox") {
+        if (is_text(object)) {
             objectColor = textColor = object.fill || "#000000";
         }
         // For groups (like racks/devices)
@@ -109,7 +132,7 @@ function updateColorPickers() {
             
             // Get text color from first text object found
             for (var i = 0; i < object._objects.length; i++) {
-                if (object._objects[i].type === "i-text" || object._objects[i].type === "textbox") {
+                if (is_text(object._objects[i])) {
                     textColor = object._objects[i].fill || "#6EA8FE";
                     break;
                 }
@@ -279,36 +302,44 @@ function apply_background(canvas, floorplan, done) {
     const finish = () => { if (done) { done(); } };
 
     if (floorplan.assigned_image == null) {
-        canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+        canvas.backgroundImage = undefined;
+        canvas.requestRenderAll();
         finish();
         return;
     }
 
-    fabric.Image.fromURL(floorplan_image_url(floorplan.assigned_image), function (img) {
+    fabric.FabricImage.fromURL(floorplan_image_url(floorplan.assigned_image)).then(function (img) {
         const boundary = canvas.getObjects().find(
             (object) => object.custom_meta
                 && object.custom_meta.object_type == "floorplan_boundry"
         );
 
+        // Fabric 7 defaults every object to a centred origin; the boundary-fitted background is
+        // positioned by its top-left corner, so say so.
         if (boundary && boundary.width && boundary.height) {
-            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+            const corner = boundary.getPointByOrigin('left', 'top');
+            img.set({
                 scaleX: boundary.width / img.width,
                 scaleY: boundary.height / img.height,
-                left: boundary.left,
-                top: boundary.top
+                left: corner.x,
+                top: corner.y,
+                originX: 'left',
+                originY: 'top'
             });
         } else {
             const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
-            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+            img.set({
                 scaleX: scale,
                 scaleY: scale,
                 left: canvas.width / 2,
                 top: canvas.height / 2,
-                originX: 'middle',
-                originY: 'middle'
+                originX: 'center',
+                originY: 'center'
             });
         }
 
+        canvas.backgroundImage = img;
+        canvas.requestRenderAll();
         finish();
     });
 }
@@ -328,22 +359,21 @@ function init_floor_plan(floorplan_id, canvas, mode) {
             const canvas_json = normalize_media_urls(floorplan.canvas, MEDIA_URL);
             canvas.loadFromJSON(
                 JSON.stringify(canvas_json),
-                // Completion: every object has been deserialised and added to the canvas, so
-                // the floorplan boundary now exists and the background can be fitted to it.
-                function () {
-                    apply_background(canvas, floorplan, function () {
-                        reset_zoom(canvas);
-                        resize_canvas(canvas, window);
-                        canvas.renderAll();
-                    });
-                },
                 // Reviver: called once per object, while the canvas is still empty.
                 function (o, object) {
                     if (mode == "readonly") {
                         object.set('selectable', false);
                     }
                 }
-            );
+            ).then(function () {
+                // Every object has been deserialised and added to the canvas, so the floorplan
+                // boundary now exists and the background can be fitted to it.
+                apply_background(canvas, floorplan, function () {
+                    reset_zoom(canvas);
+                    resize_canvas(canvas, window);
+                    canvas.renderAll();
+                });
+            });
         });
     }).fail(function (jq_xhr, text_status, error_thrown) {
         console.log(`error: ${error_thrown} - ${text_status}`);

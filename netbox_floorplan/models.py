@@ -6,6 +6,21 @@ from dcim.models import Rack, Device
 from .utils import file_upload
 
 
+# Fabric 5 stored an object's type as "rect" / "i-text" / "textbox"; Fabric 7 stores the class
+# name ("Rect" / "IText" / "Textbox"). A canvas may hold either, or a mix after a partial
+# re-save, so compare on a normalised spelling.
+def _canvas_type(obj):
+    return str(obj.get("type", "")).lower().replace("-", "")
+
+
+def _is_text(obj):
+    return _canvas_type(obj) in ("itext", "textbox")
+
+
+def _is_rect(obj):
+    return _canvas_type(obj) == "rect"
+
+
 class FloorplanImage(NetBoxModel):
     """
     A Floorplan Image is effectively a background image
@@ -219,7 +234,7 @@ class Floorplan(NetBoxModel):
                                 is_advanced_mode_rack = False
                                 if obj.get("objects"):
                                     for subobj in obj["objects"]:
-                                        if (subobj.get("type") in ["i-text", "textbox"] and
+                                        if (_is_text(subobj) and
                                                 subobj.get("custom_meta", {}).get("text_type") == "info"):
                                             is_advanced_mode_rack = True
                                             break
@@ -246,7 +261,7 @@ class Floorplan(NetBoxModel):
                                         # Check if the subobject is a rectangle and has custom_meta for rack
                                         # Update the custom_meta and text fields to match the current rack data
                                         # in Netbox
-                                        if subobj.get("type") == "rect":
+                                        if _is_rect(subobj):
                                             if subobj.get("custom_meta", {}).get("object_type") == "rack":
                                                 # Make sure the object_name matches the actual rack name
                                                 if subobj["custom_meta"]["object_name"] != f"{rack.name}":
@@ -257,7 +272,7 @@ class Floorplan(NetBoxModel):
                                         # Check if the subobject is a textbox or i-text object. This will have both
                                         # the rack name and the info text (status, role, tenant for advanced racks
                                         # or just status for simple racks).
-                                        if subobj.get("type") == "i-text" or subobj.get("type") == "textbox":
+                                        if _is_text(subobj):
                                             # Update the name text box with the current rack name if it exists
                                             if subobj.get("custom_meta", {}).get("text_type") == "name":
                                                 if subobj["text"] != f"{rack.name}":
@@ -309,7 +324,7 @@ class Floorplan(NetBoxModel):
                                 if obj.get("objects"):
                                     for subcounter, subobj in enumerate(obj["objects"]):
                                         # Update device rectangle metadata
-                                        if subobj.get("type") == "rect":
+                                        if _is_rect(subobj):
                                             if subobj.get("custom_meta", {}).get("object_type") == "device":
                                                 # Make sure the object_name matches the actual device name
                                                 if subobj["custom_meta"]["object_name"] != f"{device.name}":
@@ -317,7 +332,7 @@ class Floorplan(NetBoxModel):
                                                         subcounter]["custom_meta"]["object_name"] = f"{device.name}"
                                                     changed = True
                                         # Update device text elements (supports both advanced and simple devices)
-                                        if subobj.get("type") == "i-text" or subobj.get("type") == "textbox":
+                                        if _is_text(subobj):
 
                                             # Update device name text
                                             if subobj.get("custom_meta", {}).get("text_type") == "name":

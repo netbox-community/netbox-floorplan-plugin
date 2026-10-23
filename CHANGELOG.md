@@ -26,6 +26,17 @@ for earlier releases.
 
 ### Security
 
+* **Upgraded the vendored Fabric.js from 5.2.1 to 7.4.0**
+  ([#111](https://github.com/netbox-community/netbox-floorplan-plugin/issues/111)), closing
+  GHSA-hfvx-25r5-qc3w / CVE-2026-27013 (stored XSS through SVG export) and
+  GHSA-w22m-hvvm-xmwx / CVE-2026-44311. The editor was ported to the Fabric 7 API: saving uses
+  `toObject()` (Fabric 7's `toJSON()` ignores its property list and would have dropped
+  `custom_meta`), loading and background images are promise-based, and groups keep their
+  top-left origin. Existing floorplans load unchanged. The first save from the new editor
+  rewrites the stored canvas in Fabric 7's format (`type: "Rect"`, `version: "7.4.0"`), which
+  earlier plugin releases' editor cannot read, so downgrading after saving is not supported.
+  `resync_canvas()` and the rack/device pickers read both formats.
+
 * **A user with only view permission on Floorplan could open the canvas editor**
   ([#94](https://github.com/netbox-community/netbox-floorplan-plugin/issues/94)).
   `FloorplanMapEditView` only required login, not `change_floorplan` — its

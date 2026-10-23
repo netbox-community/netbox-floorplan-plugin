@@ -215,6 +215,24 @@ class FloorplanResyncCanvasTestCase(TestCase):
         name_label = group['objects'][1]
         self.assertEqual(name_label['text'], 'rack-1-renamed')
 
+    def test_fabric_7_type_names_are_resynced_too(self):
+        # Fabric 7 stores the class name ("Rect", "IText") where Fabric 5 stored "rect"/"i-text".
+        fabric7 = {'rect': 'Rect', 'i-text': 'IText', 'textbox': 'Textbox'}
+        group = rack_canvas(self.rack.pk, 'rack-1')
+        for member in group['objects']:
+            member['type'] = fabric7[member['type']]
+        self.floorplan.canvas = {'version': '7.4.0', 'objects': [group]}
+        self.floorplan.save()
+        self.assertEqual(self.floorplan.mapped_racks, [self.rack.pk])
+
+        self.rack.name = 'rack-1-renamed'
+        self.rack.save()
+        self.floorplan.resync_canvas()
+        self.floorplan.refresh_from_db()
+
+        name_label = self.floorplan.canvas['objects'][0]['objects'][1]
+        self.assertEqual(name_label['text'], 'rack-1-renamed')
+
     def test_deleting_a_rack_removes_it_from_the_canvas(self):
         self.rack.delete()
 

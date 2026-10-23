@@ -13,7 +13,11 @@ import {
     move_pan,
     reset_zoom,
     init_floor_plan,
-    floorplan_image_url
+    floorplan_image_url,
+    apply_background,
+    canvas_to_json,
+    is_itext,
+    is_text
 } from "/static/netbox_floorplan/floorplan/utils.js";
 
 
@@ -128,7 +132,7 @@ function add_wall() {
             "object_type": "wall",
         },
     });
-    var group = new fabric.Group([wall]);
+    var group = new fabric.Group([wall], { originX: "left", originY: "top" });
 
     group.setControlsVisibility({
         mt: true,
@@ -169,7 +173,7 @@ function add_area() {
             "object_type": "area",
         },
     });
-    var group = new fabric.Group([wall]);
+    var group = new fabric.Group([wall], { originX: "left", originY: "top" });
 
    group.setControlsVisibility({
         mt: true,
@@ -370,9 +374,9 @@ function add_floorplan_object_simple(top, left, width, height, unit, fill,
                 "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
             },
         });
-        rect.setSrc(image, function(img){
-            img.scaleX =  object_width / img.width;
-            img.scaleY =  object_height / img.height;
+        rect.setSrc(image).then(function () {
+            rect.scaleX = object_width / rect.width;
+            rect.scaleY = object_height / rect.height;
             canvas.renderAll();
         });
     }
@@ -421,7 +425,7 @@ function add_floorplan_object_simple(top, left, width, height, unit, fill,
         }
     });
 
-    var group = new fabric.Group([rect, text, button]);
+    var group = new fabric.Group([rect, text, button], { originX: "left", originY: "top" });
     group.custom_meta = {
         "object_type": object_type,
         "object_id": object_id,
@@ -474,7 +478,7 @@ function set_color(color) {
     var objects = canvas.getActiveObjects();
     objects.forEach(object => {
         if (object) {
-            if (object.type == "i-text") {
+            if (is_itext(object)) {
                 object.set('fill', color);
                 canvas.renderAll();
                 // Update the color picker to match the selected color
@@ -713,9 +717,9 @@ function add_floorplan_object_advanced(top, left, width, height, unit, fill, rot
                 "object_url": "/dcim/" + object_type + "s/" + object_id + "/",
             },
         });
-        rect.setSrc(image, function(img){
-            img.scaleX =  object_width / img.width;
-            img.scaleY =  object_height / img.height;
+        rect.setSrc(image).then(function () {
+            rect.scaleX = object_width / rect.width;
+            rect.scaleY = object_height / rect.height;
             canvas.renderAll();
         });
     }
@@ -797,7 +801,7 @@ function add_floorplan_object_advanced(top, left, width, height, unit, fill, rot
         }
     });
 
-    var group = new fabric.Group([rect, text, info_box]);
+    var group = new fabric.Group([rect, text, info_box], { originX: "left", originY: "top" });
 
     group.custom_meta = {
         "object_type": object_type,
@@ -831,7 +835,7 @@ function set_text_color(color) {
     objects.forEach(object => {
         if (object) {
             // If it's a text object, change its color (IText or Textbox)
-            if (object.type == "i-text" || object.type == "textbox") {
+            if (is_text(object)) {
                 object.set('fill', color);
                 canvas.renderAll();
                 // Update the color picker to match the selected color
@@ -842,7 +846,7 @@ function set_text_color(color) {
             // If it's a group (like a rack), find and update all text objects within it
             if (object._objects) {
                 object._objects.forEach(function(obj) {
-                    if (obj.type == "i-text" || obj.type == "textbox") {
+                    if (is_text(obj)) {
                         obj.set('fill', color);
                     }
                 });
@@ -987,9 +991,10 @@ function update_background() {
     var assigned_image = document.getElementById("id_assigned_image").value;
     if (assigned_image == "") { 
         assigned_image = null; 
-        canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+        canvas.backgroundImage = undefined;
+        canvas.requestRenderAll();
     }
-    var floor_json = canvas.toJSON(["id", "text", "_controlsVisibility", "custom_meta", "lockMovementY", "lockMovementX", "evented", "selectable"]);
+    var floor_json = canvas_to_json(canvas);
 
 
 
@@ -1012,55 +1017,14 @@ function update_background() {
         }
     }).done(function (floorplan) {
             if (floorplan.assigned_image != null) {
-                var img_url = floorplan_image_url(floorplan.assigned_image);
-
-                var img = fabric.Image.fromURL(img_url, function(img) {
-    
-
-                    var left = 0;
-                    var top = 0;
-                    var width = 0;
-                    var height = 0;
-                    canvas.getObjects().forEach(function (object) {
-                        if (object.custom_meta) {
-                            if (object.custom_meta.object_type == "floorplan_boundry") {
-                                left = object.left;
-                                top = object.top;
-                                width = object.width;
-                                height = object.height;
-                            }
-                        }
-                    });
-                    // if we have a floorplan boundary, position the image in there 
-                    if (height != 0 && width != 0) {
-                        let scaleRatioX = Math.max(width / img.width)
-                        let scaleRatioY = Math.max(height / img.height);
-                        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-                            scaleX: scaleRatioX,
-                            scaleY: scaleRatioY,
-                            left: left,
-                            top: top
-                        });     
-                    }
-                    else
-                    {
-                        let scaleRatio = Math.max(canvas.width / img.width, canvas.height / img.height);
-                        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-                            scaleX: scaleRatio,
-                            scaleY: scaleRatio,
-                            left: canvas.width / 2,
-                            top: canvas.height / 2,
-                            originX: 'middle',
-                            originY: 'middle'
-                        });
-                    }
+                apply_background(canvas, floorplan, function () {
+                    $('#background_unit_modal').modal('hide');
                 });
-            
             } else {
-                canvas.setBackgroundImage().renderAll();
+                canvas.backgroundImage = undefined;
+                canvas.renderAll();
+                $('#background_unit_modal').modal('hide');
             }
-            canvas.renderAll();
-            $('#background_unit_modal').modal('hide');
     });
 }
 
@@ -1085,7 +1049,7 @@ function update_dimensions() {
     var rounded_width = parseFloat(new_width.toFixed(2));
     var rounded_height = parseFloat(new_height.toFixed(2));
 
-    var floor_json = canvas.toJSON(["id", "text", "_controlsVisibility", "custom_meta", "lockMovementY", "lockMovementX", "evented", "selectable"]);
+    var floor_json = canvas_to_json(canvas);
     $.ajax({
         type: "PATCH",
         url: `/api/plugins/floorplan/floorplans/${obj_pk}/`,
@@ -1175,7 +1139,7 @@ function update_dimensions() {
             }
         });
 
-        var group = new fabric.Group([rect, text, dimensions]);
+        var group = new fabric.Group([rect, text, dimensions], { originX: "left", originY: "top" });
         group.angle = current_angle;
         group.lockMovementY = true;
         group.lockMovementX = true;
@@ -1257,7 +1221,7 @@ document.addEventListener('keydown', function (e) {
 // start save floorplan ----------------------------------------------------------------------------- !
 
 function save_floorplan() {
-    var floor_json = canvas.toJSON(["id", "text", "_controlsVisibility", "custom_meta", "lockMovementY", "lockMovementX", "evented", "selectable"]);
+    var floor_json = canvas_to_json(canvas);
     $.ajax({
         type: "PATCH",
         url: `/api/plugins/floorplan/floorplans/${obj_pk}/`,
@@ -1276,7 +1240,7 @@ function save_floorplan() {
 }
 
 function save_and_redirect() {
-    var floor_json = canvas.toJSON(["id", "text", "_controlsVisibility", "custom_meta", "lockMovementY", "lockMovementX", "evented", "selectable"]);
+    var floor_json = canvas_to_json(canvas);
     $.ajax({
         type: "PATCH",
         url: `/api/plugins/floorplan/floorplans/${obj_pk}/`,
