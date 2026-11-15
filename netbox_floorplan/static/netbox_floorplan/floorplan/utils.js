@@ -7,6 +7,11 @@ export {
     prevent_leaving_canvas,
     wheel_zoom,
     reset_zoom,
+    fit_to_objects,
+    center_on_object,
+    set_relative_zoom,
+    relative_zoom,
+    handle_window_resize,
     stop_pan,
     start_pan,
     move_pan,
@@ -39,46 +44,161 @@ function is_text(object) {
 }
 
 
-function resize_canvas(canvas, window) {
-    var bob_width = $("#content-container").width();
-    var window_width = $(window).width();
-    window_width = Math.min(window_width, bob_width);
-    var window_height = $(window).height();
-    var canvas_width = window_width;
-    var canvas_height = window_height - 100;
-    canvas.setDimensions({ width: canvas_width, height: canvas_height });
-//    canvas.backgroundImage.scaleToWidth(canvas_width);
-//    canvas.backgroundImage.scaleToHeight(canvas_height);
-    canvas.renderAll();
+// Viewport ------------------------------------------------------------------------------------
+//
+// The drawing is stored in scene coordinates; what is visible is decided by the canvas size and
+// the viewport transform alone. Everything here computes the transform from scratch rather than
+// panning relative to whatever it was before, so the result does not depend on earlier zooming.
+
+// Margin kept around the drawing when it is fitted, as a fraction of the canvas on each side.
+const FIT_MARGIN = 0.03;
+// Margin when centring on a single object, which should keep some surroundings in view.
+const OBJECT_FIT_MARGIN = 0.3;
+const MIN_ZOOM = 0.01;
+const MAX_ZOOM = 20;
+// Smallest canvas height, so a short window or a floorplan far down the page stays usable.
+const MIN_CANVAS_HEIGHT = 400;
+// Space kept free below the canvas, so it ends above the bottom of the window.
+const CANVAS_BOTTOM_GAP = 24;
+
+function clamp_zoom(zoom) {
+    return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }
 
-function reset_zoom(canvas) {
+function find_boundary(canvas) {
+    return canvas.getObjects().find(
+        (object) => object.custom_meta && object.custom_meta.object_type == "floorplan_boundry"
+    );
+}
 
-    var objs = canvas.getObjects();
-    for (var i = 0; i < objs.length; i++) {
-        if (objs[i].custom_meta) {
-            if (objs[i].custom_meta.object_type == "floorplan_boundry") {
-                canvas.setActiveObject(objs[i]);
-                let pan_x = 0
-                let pan_y = 0
-                let object = canvas.getActiveObject()
-                let obj_wdth = object.getScaledWidth()
-                let obj_hgt = object.getScaledHeight()
-                let rect_cooords = object.getBoundingRect();
-                let zoom_level = Math.min(canvas.width / rect_cooords.width, canvas.height / rect_cooords.height);
+// Axis-aligned bounds of objects in scene coordinates, or null if there is nothing to measure.
+// Fabric 7's getBoundingRect() works in scene coordinates, independent of the viewport.
+function scene_bounds(objects) {
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    objects.forEach((object) => {
+        object.setCoords();
+        const rect = object.getBoundingRect();
+        left = Math.min(left, rect.left);
+        top = Math.min(top, rect.top);
+        right = Math.max(right, rect.left + rect.width);
+        bottom = Math.max(bottom, rect.top + rect.height);
+    });
+    if (!isFinite(left) || right <= left || bottom <= top) {
+        return null;
+    }
+    return { left: left, top: top, width: right - left, height: bottom - top };
+}
 
-                canvas.setZoom(zoom_level * 0.7);
-                let zoom = canvas.getZoom()
-                pan_x = ((canvas.getWidth() / zoom / 2) - (object.aCoords.tl.x) - (obj_wdth / 2)) * zoom
-                pan_y = ((canvas.getHeight() / zoom / 2) - (object.aCoords.tl.y) - (obj_hgt / 2)) * zoom
-                pan_x = (canvas.getVpCenter().x - object.getCenterPoint().x) * zoom
-                pan_y = ((canvas.getVpCenter().y - object.getCenterPoint().y) * zoom)
-                canvas.relativePan({ x: pan_x, y: pan_y })
-                canvas.requestRenderAll()
-                canvas.discardActiveObject();
-            }
+// What a reset fits to: the floorplan boundary, or every object if no dimensions are set yet.
+function drawing_bounds(canvas) {
+    const boundary = find_boundary(canvas);
+    return scene_bounds(boundary ? [boundary] : canvas.getObjects());
+}
+
+function notify_viewport(canvas) {
+    canvas.fire("viewport:changed", { zoom: canvas.getZoom() });
+}
+
+// Size the canvas to the element it sits in: the full content width, and the height that is
+// left in the window below the canvas's position on the page. With fit_height set (the
+// read-only view), the height is further limited to what the drawing needs at full width, so
+// a wide floorplan does not leave a tall empty canvas under it.
+function resize_canvas(canvas, options) {
+    const fit_height = Boolean(options && options.fit_height);
+    const container = canvas.wrapperEl.parentElement;
+    const style = window.getComputedStyle(container);
+    // The canvas element has a 1px border on each side, which sits outside the canvas size.
+    const border = 2;
+    const width = Math.max(
+        1,
+        Math.floor(container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) - border
+    );
+
+    const page_top = container.getBoundingClientRect().top + window.scrollY;
+    let height = Math.max(MIN_CANVAS_HEIGHT, window.innerHeight - page_top - CANVAS_BOTTOM_GAP - border);
+
+    if (fit_height) {
+        const bounds = drawing_bounds(canvas);
+        if (bounds) {
+            height = Math.min(height, Math.ceil(width * bounds.height / bounds.width));
         }
     }
+
+    canvas.setDimensions({ width: width, height: height });
+    canvas.requestRenderAll();
+}
+
+// Zoom and pan so that the given objects fill the canvas, centred, with a margin. Returns the
+// zoom it set, or null if the objects have no measurable size.
+function fit_to_objects(canvas, objects, margin) {
+    const bounds = scene_bounds(objects);
+    if (!bounds) {
+        return null;
+    }
+    const fraction = 1 - 2 * (margin === undefined ? FIT_MARGIN : margin);
+    const zoom = clamp_zoom(Math.min(
+        canvas.getWidth() * fraction / bounds.width,
+        canvas.getHeight() * fraction / bounds.height
+    ));
+    const center_x = bounds.left + bounds.width / 2;
+    const center_y = bounds.top + bounds.height / 2;
+    canvas.setViewportTransform([
+        zoom, 0, 0, zoom,
+        canvas.getWidth() / 2 - center_x * zoom,
+        canvas.getHeight() / 2 - center_y * zoom
+    ]);
+    notify_viewport(canvas);
+    return zoom;
+}
+
+// Show the whole floorplan. The zoom this produces is the reference for the editor's zoom
+// slider, and until the user zooms or pans again the drawing is refitted on window resize.
+function reset_zoom(canvas) {
+    const boundary = find_boundary(canvas);
+    const zoom = fit_to_objects(canvas, boundary ? [boundary] : canvas.getObjects());
+    if (zoom === null) {
+        canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+        notify_viewport(canvas);
+    }
+    canvas.fit_zoom = zoom || 1;
+    canvas.user_viewport = false;
+}
+
+// Zoom to one object, keeping some of the floorplan around it in view.
+function center_on_object(canvas, object) {
+    if (object && fit_to_objects(canvas, [object], OBJECT_FIT_MARGIN) !== null) {
+        canvas.user_viewport = true;
+    }
+}
+
+// Zoom as a power of two of the fitted zoom: 0 shows the whole floorplan, 1 is twice as close.
+// Keeps the point at the centre of the canvas where it is.
+function relative_zoom(canvas) {
+    return Math.log2(canvas.getZoom() / (canvas.fit_zoom || 1));
+}
+
+function set_relative_zoom(canvas, level) {
+    const zoom = clamp_zoom((canvas.fit_zoom || 1) * Math.pow(2, level));
+    canvas.zoomToPoint(new fabric.Point(canvas.getWidth() / 2, canvas.getHeight() / 2), zoom);
+    canvas.user_viewport = true;
+    notify_viewport(canvas);
+}
+
+// Resize to the new window. An untouched view is refitted; a view the user has zoomed or
+// panned keeps the same scene point at the centre of the canvas.
+function handle_window_resize(canvas, options) {
+    const old_width = canvas.getWidth();
+    const old_height = canvas.getHeight();
+    resize_canvas(canvas, options);
+    if (!canvas.user_viewport) {
+        reset_zoom(canvas);
+        return;
+    }
+    const vpt = canvas.viewportTransform.slice();
+    vpt[4] += (canvas.getWidth() - old_width) / 2;
+    vpt[5] += (canvas.getHeight() - old_height) / 2;
+    canvas.setViewportTransform(vpt);
+    notify_viewport(canvas);
 }
 
 function export_svg(canvas) {
@@ -171,20 +291,36 @@ function disable_button_selection() {
     }
 }
 
+// Keep a moved object inside the floorplan boundary. Both rectangles are in scene coordinates,
+// so this holds at any zoom or pan; comparing against the canvas size in screen pixels, as
+// before, pushed objects around as soon as the view was zoomed. Without a boundary (no
+// dimensions set yet) objects move freely, and an object larger than the boundary is left alone.
 function prevent_leaving_canvas(e, canvas) {
-    var obj = e.target;
-    obj.setCoords();
-    var current_zoom = obj.canvas.getZoom();
-    if (obj.getScaledHeight() > obj.canvas.height || obj.getScaledWidth() > obj.canvas.width) {
+    const obj = e.target;
+    const boundary = find_boundary(obj.canvas);
+    if (!boundary || obj === boundary) {
         return;
     }
-    if (obj.getBoundingRect().top < 0 || obj.getBoundingRect().left < 0) {
-        obj.top = Math.max(obj.top * current_zoom, obj.top * current_zoom - obj.getBoundingRect().top) / current_zoom;
-        obj.left = Math.max(obj.left * current_zoom, obj.left * current_zoom - obj.getBoundingRect().left) / current_zoom;
+    const area = scene_bounds([boundary]);
+    obj.setCoords();
+    const rect = obj.getBoundingRect();
+    if (!area || rect.width > area.width || rect.height > area.height) {
+        return;
     }
-    if (obj.getBoundingRect().top + obj.getBoundingRect().height > obj.canvas.height || obj.getBoundingRect().left + obj.getBoundingRect().width > obj.canvas.width) {
-        obj.top = Math.min(obj.top * current_zoom, obj.canvas.height - obj.getBoundingRect().height + obj.top * current_zoom - obj.getBoundingRect().top) / current_zoom;
-        obj.left = Math.min(obj.left * current_zoom, obj.canvas.width - obj.getBoundingRect().width + obj.left * current_zoom - obj.getBoundingRect().left) / current_zoom;
+    let dx = 0, dy = 0;
+    if (rect.left < area.left) {
+        dx = area.left - rect.left;
+    } else if (rect.left + rect.width > area.left + area.width) {
+        dx = area.left + area.width - (rect.left + rect.width);
+    }
+    if (rect.top < area.top) {
+        dy = area.top - rect.top;
+    } else if (rect.top + rect.height > area.top + area.height) {
+        dy = area.top + area.height - (rect.top + rect.height);
+    }
+    if (dx || dy) {
+        obj.set({ left: obj.left + dx, top: obj.top + dy });
+        obj.setCoords();
     }
 };
 
@@ -192,10 +328,10 @@ function prevent_leaving_canvas(e, canvas) {
 function wheel_zoom(opt, canvas) {
     var delta = opt.e.deltaY;
     var zoom = canvas.getZoom();
-    zoom *= 0.999 ** delta;
-    if (zoom > 20) zoom = 20;
-    if (zoom < 0.01) zoom = 0.01;
-    canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+    zoom = clamp_zoom(zoom * 0.999 ** delta);
+    canvas.zoomToPoint(new fabric.Point(opt.e.offsetX, opt.e.offsetY), zoom);
+    canvas.user_viewport = true;
+    notify_viewport(canvas);
     opt.e.preventDefault();
     opt.e.stopPropagation();
 }
@@ -222,7 +358,8 @@ function move_pan(opt, canvas) {
         var vpt = canvas.viewportTransform;
         vpt[4] += e.clientX - canvas.lastPosX;
         vpt[5] += e.clientY - canvas.lastPosY;
-        canvas.requestRenderAll();
+        canvas.setViewportTransform(vpt);
+        canvas.user_viewport = true;
         canvas.lastPosX = e.clientX;
         canvas.lastPosY = e.clientY;
     }
@@ -368,9 +505,11 @@ function init_floor_plan(floorplan_id, canvas, mode) {
             ).then(function () {
                 // Every object has been deserialised and added to the canvas, so the floorplan
                 // boundary now exists and the background can be fitted to it.
+                // Size the canvas before fitting: the fit depends on the canvas size, and fitting
+                // first left the drawing scaled for a canvas that was then resized under it.
                 apply_background(canvas, floorplan, function () {
+                    resize_canvas(canvas, { fit_height: mode == "readonly" });
                     reset_zoom(canvas);
-                    resize_canvas(canvas, window);
                     canvas.renderAll();
                 });
             });

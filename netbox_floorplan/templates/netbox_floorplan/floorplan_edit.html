@@ -187,8 +187,8 @@
                                         <div class="mb-1">
                                             <label class="form-label">View & Zoom</label>
                                         </div>
-                                        <input type='range' step='.01' max='2' min='0' onchange='set_zoom(this.value)'
-                                            id="zoom">
+                                        <input type='range' step='0.1' min='-4' max='4' value='0' oninput='set_zoom(this.value)'
+                                            id="zoom" title="Zoom relative to the whole floorplan">
                                         <a class="btn btn-outline-secondary" id="reset_zoom" href="#">
                                             Reset Zoom
                                         </a>
