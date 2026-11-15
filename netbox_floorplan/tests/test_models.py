@@ -252,6 +252,23 @@ class FloorplanResyncCanvasTestCase(TestCase):
         floorplan.resync_canvas()
         self.assertEqual(floorplan.canvas, {})
 
+    def test_saved_view_survives_a_resync(self):
+        # The editor stores the saved view at the top level of the canvas document; the
+        # resync rewrites objects only and must keep it, including when it saves a change.
+        view = {'left': 120.5, 'top': -40, 'width': 800, 'height': 450}
+        self.floorplan.canvas['saved_view'] = view
+        self.floorplan.save()
+
+        self.rack.name = 'rack-1-renamed'
+        self.rack.save()
+        self.floorplan.resync_canvas()
+        self.floorplan.refresh_from_db()
+
+        self.assertEqual(self.floorplan.canvas['saved_view'], view)
+        self.assertEqual(
+            self.floorplan.canvas['objects'][0]['custom_meta']['object_name'], 'rack-1-renamed'
+        )
+
 
 class FloorplanImageTestCase(TestCase):
 

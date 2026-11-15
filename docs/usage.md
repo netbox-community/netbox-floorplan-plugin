@@ -69,6 +69,13 @@ Deleting a placed object removes it from the drawing only. The rack or device it
 
 * **Lock** fixes an object in place so it cannot be dragged or resized accidentally. Useful for walls and areas once the outline is right.
 * **Center on selected object** pans the canvas to the current selection, which helps on large floorplans.
+* **Zoom** with the mouse wheel or the slider, and pan by dragging with <kbd>Alt</kbd> held. The slider is relative to the fitted view: 0 shows the whole floorplan, and each step doubles or halves the zoom. **Reset Zoom** returns to the fitted view.
+
+## Saved View
+
+By default the Floor Plan tab fits the whole floorplan into the page. To show a particular part instead, zoom and pan the editor to it, then choose **Use as View** and **Save**. The Floor Plan tab and **Reset Zoom** then fit that area.
+
+The view is stored as an area of the drawing, not as a zoom level or a canvas size, so it shows the same part of the floorplan on any screen, scaled to fit the page. **Clear View** goes back to fitting the whole floorplan.
 
 ## Saving
 

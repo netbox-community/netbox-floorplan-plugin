@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Features
+
+* **Saved view.** The editor's **Use as View** stores the area currently shown, and the
+  Floor Plan tab and **Reset Zoom** fit that area instead of the whole floorplan. It is kept
+  as a rectangle in drawing coordinates in the canvas document (`saved_view`), so it shows the
+  same part of the floorplan on any screen size; **Clear View** removes it. No migration:
+  floorplans without a saved view behave as before.
+
 ### Bug Fixes
 
 * **Floorplans open fitted to the page** ([#110](https://github.com/netbox-community/netbox-floorplan-plugin/issues/110)).

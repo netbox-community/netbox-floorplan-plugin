@@ -13,6 +13,7 @@ import {
     move_pan,
     reset_zoom,
     center_on_object,
+    visible_scene_rect,
     set_relative_zoom,
     relative_zoom,
     init_floor_plan,
@@ -85,7 +86,12 @@ $(window).resize(function() {
 // Keep the zoom slider in step with every way of zooming: wheel, reset, centre, resize.
 canvas.on('viewport:changed', function () {
     document.getElementById("zoom").value = relative_zoom(canvas).toFixed(2);
+    update_saved_view_controls();
 });
+
+function update_saved_view_controls() {
+    document.getElementById("clear_view").classList.toggle("disabled", !canvas.saved_view);
+}
 
 canvas.on('mouse:wheel', function (opt) {
     wheel_zoom(opt, canvas);
@@ -970,6 +976,22 @@ window.set_zoom = set_zoom;
 function center_pan_on_slected_object() {
     center_on_object(canvas, canvas.getActiveObject());
 }
+
+// Use the area currently shown as the floorplan's view. The Floor Plan tab and Reset Zoom fit
+// this area instead of the whole floorplan. It is kept in drawing coordinates, so it shows the
+// same part of the floorplan on any screen size, scaled to fit. Like every other change in the
+// editor it is stored with the drawing when the floorplan is saved.
+function save_view() {
+    canvas.saved_view = visible_scene_rect(canvas);
+    reset_zoom(canvas);
+}
+window.save_view = save_view;
+
+function clear_view() {
+    canvas.saved_view = null;
+    reset_zoom(canvas);
+}
+window.clear_view = clear_view;
 window.center_pan_on_slected_object = center_pan_on_slected_object;
 
 // end buttons ----------------------------------------------------------------------------- !

@@ -8,6 +8,7 @@ export {
     wheel_zoom,
     reset_zoom,
     fit_to_objects,
+    visible_scene_rect,
     center_on_object,
     set_relative_zoom,
     relative_zoom,
@@ -29,7 +30,29 @@ export {
 const CANVAS_PROPS = ["id", "text", "_controlsVisibility", "custom_meta", "lockMovementY", "lockMovementX", "evented", "selectable"];
 
 function canvas_to_json(canvas) {
-    return canvas.toObject(CANVAS_PROPS);
+    const doc = canvas.toObject(CANVAS_PROPS);
+    // The saved view is a property of the floorplan, not of any object, so it is kept at the
+    // top level of the document. resync_canvas() only rewrites "objects" and leaves it alone.
+    if (canvas.saved_view) {
+        doc.saved_view = canvas.saved_view;
+    }
+    return doc;
+}
+
+// A saved view as stored in the document: a rectangle in scene coordinates. Anything else
+// (missing, hand-edited, from a newer version) is ignored and the floorplan fits as usual.
+function valid_view(view) {
+    if (!view || typeof view !== "object") {
+        return null;
+    }
+    const keys = ["left", "top", "width", "height"];
+    if (!keys.every((key) => typeof view[key] === "number" && isFinite(view[key]))) {
+        return null;
+    }
+    if (view.width <= 0 || view.height <= 0) {
+        return null;
+    }
+    return { left: view.left, top: view.top, width: view.width, height: view.height };
 }
 
 
@@ -89,9 +112,13 @@ function scene_bounds(objects) {
     return { left: left, top: top, width: right - left, height: bottom - top };
 }
 
-// What a reset fits to: the floorplan boundary, or every object if no dimensions are set yet,
-// or the background image if there is nothing else (a floorplan that is only a background).
+// What a reset fits to: the saved view if there is one, otherwise the floorplan boundary, or
+// every object if no dimensions are set yet, or the background image if there is nothing else
+// (a floorplan that is only a background).
 function drawing_bounds(canvas) {
+    if (canvas.saved_view) {
+        return canvas.saved_view;
+    }
     const boundary = find_boundary(canvas);
     if (boundary) {
         return scene_bounds([boundary]);
@@ -100,6 +127,19 @@ function drawing_bounds(canvas) {
         return scene_bounds(canvas.getObjects());
     }
     return canvas.backgroundImage ? scene_bounds([canvas.backgroundImage]) : null;
+}
+
+// The part of the drawing currently visible, in scene coordinates.
+function visible_scene_rect(canvas) {
+    const vpt = canvas.viewportTransform;
+    const zoom = vpt[0];
+    const round = (value) => Math.round(value * 100) / 100;
+    return {
+        left: round(-vpt[4] / zoom),
+        top: round(-vpt[5] / zoom),
+        width: round(canvas.getWidth() / zoom),
+        height: round(canvas.getHeight() / zoom)
+    };
 }
 
 function notify_viewport(canvas) {
@@ -162,16 +202,19 @@ function fit_to_bounds(canvas, bounds, margin) {
     return zoom;
 }
 
-// Show the whole floorplan. The zoom this produces is the reference for the editor's zoom
-// slider, and until the user zooms or pans again the drawing is refitted on window resize.
+// Show the saved view, or the whole floorplan. The zoom this produces is the reference for the
+// editor's zoom slider, and until the user zooms or pans again the drawing is refitted on window
+// resize. A saved view is fitted without a margin: it is exactly the area that was chosen.
 function reset_zoom(canvas) {
-    const zoom = fit_to_bounds(canvas, drawing_bounds(canvas));
+    const zoom = fit_to_bounds(canvas, drawing_bounds(canvas), canvas.saved_view ? 0 : FIT_MARGIN);
     if (zoom === null) {
         canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
         notify_viewport(canvas);
     }
     canvas.fit_zoom = zoom || 1;
     canvas.user_viewport = false;
+    // Again, now that fit_zoom is the new reference: listeners such as the zoom slider read it.
+    notify_viewport(canvas);
 }
 
 // Zoom to one object, keeping some of the floorplan around it in view.
@@ -504,6 +547,7 @@ function init_floor_plan(floorplan_id, canvas, mode) {
         floorplan.results.forEach((floorplan) => {
             target_image = floorplan.assigned_image
             const canvas_json = normalize_media_urls(floorplan.canvas, MEDIA_URL);
+            canvas.saved_view = valid_view(canvas_json && canvas_json.saved_view);
             canvas.loadFromJSON(
                 JSON.stringify(canvas_json),
                 // Reviver: called once per object, while the canvas is still empty.
