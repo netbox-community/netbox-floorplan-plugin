@@ -57,6 +57,12 @@ canvas.on({
     "selection:cleared": disable_button_selection,
 });
 
+canvas.on({
+    "selection:updated": update_size_controls,
+    "selection:created": update_size_controls,
+    "selection:cleared": update_size_controls,
+});
+
 canvas.on('object:moving', function (opt) {
     prevent_leaving_canvas(opt, canvas);
 });
@@ -982,6 +988,131 @@ function center_pan_on_slected_object() {
 
 }
 window.center_pan_on_slected_object = center_pan_on_slected_object;
+
+// start object size ----------------------------------------------------------------------------- !
+//
+// The footprint of a placed rack or device. Racks are placed at their rack type's outer width and
+// depth, devices at a fixed 0.6 m square. A size set here overrides that and is recorded in the
+// group's custom_meta.size_override in millimetres, so it is kept when the floorplan is saved and
+// left alone by resync_canvas(). One drawing unit is 10 mm (1 m = 100 units), the scale the
+// floorplan dimensions and the picker use.
+
+const MM_PER_UNIT = 10;
+const DEFAULT_RACK_MM = { width: 600, depth: 910 };
+const DEFAULT_DEVICE_MM = { width: 600, depth: 600 };
+
+// The selected rack or device group, or null.
+function sizable_object() {
+    const object = canvas.getActiveObject();
+    if (!object || !object.custom_meta || !object._objects || !object._objects.length) {
+        return null;
+    }
+    const type = object.custom_meta.object_type;
+    return (type == "rack" || type == "device") ? object : null;
+}
+
+// Width and depth of a group's shape (its first member: the rectangle or the device image), in
+// drawing units, before the group's own scaling and rotation.
+function footprint(group) {
+    const shape = group._objects[0];
+    return { width: shape.width * shape.scaleX, height: shape.height * shape.scaleY };
+}
+
+function set_footprint(group, width, height) {
+    const shape = group._objects[0];
+    const old = footprint(group);
+    if (shape instanceof fabric.FabricImage) {
+        shape.set({ scaleX: width / shape.width, scaleY: height / shape.height });
+    } else {
+        shape.set({ width: width, height: height, scaleX: 1, scaleY: 1 });
+    }
+    group._objects.slice(1).forEach(function (label) {
+        // Labels are as wide as the shape they were made for; keep them so.
+        if (label.type == "textbox" && Math.abs(label.width - old.width) < 0.5) {
+            label.set({ width: width });
+        }
+        // Labels under a device image follow its bottom edge; labels inside a rack stay centred.
+        if (label.top > shape.top + old.height / 2) {
+            label.set({ top: label.top + (height - old.height) / 2 });
+        }
+    });
+    // Refit the group to its members. The shape grows about its centre, so the object stays
+    // where it is.
+    group.triggerLayout();
+    group.setCoords();
+    canvas.requestRenderAll();
+}
+
+function update_size_controls() {
+    const controls = document.getElementById("size_controls");
+    const group = sizable_object();
+    controls.classList.toggle("d-none", !group);
+    if (!group) {
+        return;
+    }
+    const size = footprint(group);
+    document.getElementById("size_width").value = Math.round(size.width * MM_PER_UNIT);
+    document.getElementById("size_depth").value = Math.round(size.height * MM_PER_UNIT);
+    const overridden = Boolean(group.custom_meta.size_override);
+    document.getElementById("size_source").textContent = overridden
+        ? "Set manually."
+        : (group.custom_meta.object_type == "rack" ? "From the rack type." : "Default device size.");
+}
+window.update_size_controls = update_size_controls;
+
+function apply_size() {
+    const group = sizable_object();
+    const width = parseFloat(document.getElementById("size_width").value);
+    const depth = parseFloat(document.getElementById("size_depth").value);
+    if (!group || !(width > 0) || !(depth > 0)) {
+        return;
+    }
+    set_footprint(group, width / MM_PER_UNIT, depth / MM_PER_UNIT);
+    group.custom_meta.size_override = { width: width, depth: depth };
+    update_size_controls();
+}
+window.apply_size = apply_size;
+
+// The size NetBox gives the object: a rack's rack type outer dimensions (or the rack's own,
+// for a rack without a rack type), the default for a rack without any, or the device default.
+function netbox_size(group) {
+    const meta = group.custom_meta;
+    if (meta.object_type != "rack") {
+        return Promise.resolve(DEFAULT_DEVICE_MM);
+    }
+    const to_mm = (value, unit) => unit == "in" ? value * 25.4 : value;
+    const from = (source) => {
+        if (!source || !source.outer_width || !source.outer_depth) {
+            return null;
+        }
+        const unit = source.outer_unit && (source.outer_unit.value || source.outer_unit);
+        return { width: to_mm(source.outer_width, unit), depth: to_mm(source.outer_depth, unit) };
+    };
+    return $.get(`/api/dcim/racks/${meta.object_id}/`).then(function (rack) {
+        if (!rack.rack_type) {
+            return from(rack) || DEFAULT_RACK_MM;
+        }
+        return $.get(`/api/dcim/rack-types/${rack.rack_type.id}/`).then(
+            (rack_type) => from(rack_type) || from(rack) || DEFAULT_RACK_MM
+        );
+    });
+}
+
+// Also picks up a rack type whose dimensions changed after the rack was placed.
+function reset_size() {
+    const group = sizable_object();
+    if (!group) {
+        return;
+    }
+    netbox_size(group).then(function (size) {
+        set_footprint(group, size.width / MM_PER_UNIT, size.depth / MM_PER_UNIT);
+        delete group.custom_meta.size_override;
+        update_size_controls();
+    });
+}
+window.reset_size = reset_size;
+
+// end object size ----------------------------------------------------------------------------- !
 
 // end buttons ----------------------------------------------------------------------------- !
 

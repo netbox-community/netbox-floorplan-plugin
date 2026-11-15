@@ -1,5 +1,16 @@
 # Change Log
 
+## Unreleased
+
+### Features
+
+* **Set the footprint of a placed rack or device.** Selecting one in the editor shows its
+  width and depth in millimetres, which can be changed and applied; **Reset to NetBox Size**
+  returns to the rack type's outer dimensions (or the defaults). Useful for devices, which
+  NetBox gives no footprint and are always placed at 600 × 600 mm, and for racks without
+  outer dimensions. The size is kept in the object's `custom_meta.size_override`; no
+  migration, and objects without one behave as before.
+
 ## v0.10.0
 
 **Targets NetBox 4.7.** The supported range is declared as a minimum of 4.7.0 and a
