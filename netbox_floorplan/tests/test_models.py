@@ -253,6 +253,77 @@ class FloorplanResyncCanvasTestCase(TestCase):
         self.assertEqual(floorplan.canvas, {})
 
 
+class FloorplanLocationAreaTestCase(TestCase):
+    """Placed child-location areas are kept in step with NetBox by resync_canvas()."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.site = Site.objects.create(name='Site 1', slug='site-1')
+        cls.building = Location.objects.create(name='Building', slug='building', site=cls.site)
+
+    def setUp(self):
+        from netbox_floorplan.tests.test_views import location_canvas
+        self.floor = Location.objects.create(
+            name='Floor', slug='floor', site=self.site, parent=self.building
+        )
+        self.room = Location.objects.create(
+            name='Room', slug='room', site=self.site, parent=self.floor
+        )
+        Rack.objects.create(name='rack-1', site=self.site, location=self.room)
+        Rack.objects.create(name='rack-2', site=self.site, location=self.room)
+        # An empty location: NetBox refuses to delete a location that still holds racks.
+        self.annex = Location.objects.create(
+            name='Annex', slug='annex', site=self.site, parent=self.building
+        )
+        self.floorplan = Floorplan.objects.create(location=self.building, canvas={'objects': [
+            location_canvas(self.floor.pk, 'Floor', '2 racks'),
+            location_canvas(self.annex.pk, 'Annex', '0 racks'),
+        ]})
+
+    def _area(self):
+        self.floorplan.refresh_from_db()
+        return self.floorplan.canvas['objects'][0]
+
+    def test_mapped_locations(self):
+        self.assertEqual(self.floorplan.mapped_locations, [self.floor.pk, self.annex.pk])
+
+    def test_unchanged_location_leaves_the_canvas_alone(self):
+        before = self.floorplan.canvas
+        self.floorplan.resync_canvas()
+        self.floorplan.refresh_from_db()
+        self.assertEqual(self.floorplan.canvas, before)
+
+    def test_renaming_a_location_updates_the_area(self):
+        self.floor.name = 'First Floor'
+        self.floor.save()
+        self.floorplan.resync_canvas()
+        area = self._area()
+        self.assertEqual(area['custom_meta']['object_name'], 'First Floor')
+        self.assertEqual(area['objects'][0]['custom_meta']['object_name'], 'First Floor')
+        self.assertEqual(area['objects'][1]['text'], 'First Floor')
+
+    def test_rack_count_follows_netbox(self):
+        Rack.objects.create(name='rack-3', site=self.site, location=self.floor)
+        self.floorplan.resync_canvas()
+        self.assertEqual(self._area()['objects'][2]['text'], '3 racks')
+
+    def test_deleting_a_location_removes_the_area(self):
+        self.annex.delete()
+        self.floorplan.resync_canvas()
+        self.floorplan.refresh_from_db()
+        self.assertEqual(self.floorplan.mapped_locations, [self.floor.pk])
+
+    def test_racks_and_other_objects_are_untouched(self):
+        rack = Rack.objects.create(name='rack-x', site=self.site, location=self.building)
+        self.floorplan.canvas['objects'].append(rack_canvas(rack.pk, 'rack-x'))
+        self.floorplan.save()
+        self.annex.delete()
+        self.floorplan.resync_canvas()
+        self.floorplan.refresh_from_db()
+        self.assertEqual(self.floorplan.mapped_racks, [rack.pk])
+        self.assertEqual(self.floorplan.mapped_locations, [self.floor.pk])
+
+
 class FloorplanImageTestCase(TestCase):
 
     def test_str(self):

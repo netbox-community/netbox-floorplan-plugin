@@ -216,6 +216,87 @@ class FloorplanObjectListViewsTestCase(TestCase):
         self.assertHttpStatus(response, 200)
 
 
+class LocationPickerTestCase(TestCase):
+    """
+    The Child Locations picker offers a location floorplan's descendants (not the location
+    itself, siblings or parents) and a site floorplan's locations, less those already placed,
+    with a cumulative rack count.
+    """
+    user_permissions = ()
+
+    @classmethod
+    def setUpTestData(cls):
+        from dcim.models import Rack
+        cls.site = Site.objects.create(name='Site 1', slug='site-1')
+        cls.building = Location.objects.create(name='Building', slug='building', site=cls.site)
+        cls.floor = Location.objects.create(
+            name='Floor', slug='floor', site=cls.site, parent=cls.building
+        )
+        cls.room = Location.objects.create(name='Room', slug='room', site=cls.site, parent=cls.floor)
+        cls.other = Location.objects.create(name='Other', slug='other', site=cls.site)
+        for i in range(3):
+            Rack.objects.create(name=f'rack-{i}', site=cls.site, location=cls.room)
+        cls.building_floorplan = Floorplan.objects.create(location=cls.building)
+        cls.site_floorplan = Floorplan.objects.create(site=cls.site)
+
+    def _rows(self, floorplan):
+        """The picker's HTML and the names of the locations it offers."""
+        url = reverse('plugins:netbox_floorplan:floorplan_location_list')
+        response = self.client.get(f'{url}?floorplan_id={floorplan.pk}')
+        self.assertHttpStatus(response, 200)
+        content = response.content.decode()
+        offered = {
+            name for name in ('Building', 'Floor', 'Room', 'Other')
+            if f'add_floorplan_location({self._js(getattr(self, name.lower()).id)}, {self._js(name)},'
+            in content
+        }
+        return content, offered
+
+    def test_location_floorplan_offers_descendants(self):
+        self.add_permissions('dcim.view_location')
+        _, rows = self._rows(self.building_floorplan)
+        self.assertEqual(rows, {'Floor', 'Room'})
+
+    def test_site_floorplan_offers_every_location(self):
+        self.add_permissions('dcim.view_location')
+        _, rows = self._rows(self.site_floorplan)
+        self.assertEqual(rows, {'Building', 'Floor', 'Room', 'Other'})
+
+    def test_placed_locations_are_not_offered(self):
+        self.add_permissions('dcim.view_location')
+        self.building_floorplan.canvas = {'objects': [location_canvas(self.floor.pk, 'Floor')]}
+        self.building_floorplan.save()
+        _, rows = self._rows(self.building_floorplan)
+        self.assertEqual(rows, {'Room'})
+
+    def test_rack_count_is_cumulative(self):
+        self.add_permissions('dcim.view_location')
+        content, _ = self._rows(self.building_floorplan)
+        # Floor holds no rack itself; its child Room holds three.
+        self.assertIn(f'add_floorplan_location({self._js(self.floor.id)}, {self._js("Floor")}, 3)', content)
+
+    @staticmethod
+    def _js(value):
+        from netbox_floorplan.templatetags.template_utils import js_str
+        return js_str(value)
+
+
+def location_canvas(location_id, name, racks='0 racks'):
+    """A child-location area as the editor serialises it."""
+    meta = {
+        'object_type': 'location', 'object_id': str(location_id), 'object_name': name,
+        'object_url': f'/dcim/locations/{location_id}/floorplans/',
+    }
+    return {
+        'type': 'Group', 'custom_meta': dict(meta),
+        'objects': [
+            {'type': 'Rect', 'custom_meta': dict(meta)},
+            {'type': 'Textbox', 'text': name, 'custom_meta': {'text_type': 'name'}},
+            {'type': 'Textbox', 'text': racks, 'custom_meta': {'text_type': 'info'}},
+        ],
+    }
+
+
 class MediaUrlExposureTestCase(TestCase):
     """
     The canvas needs NetBox's MEDIA_URL, so the templates publish it from Django settings

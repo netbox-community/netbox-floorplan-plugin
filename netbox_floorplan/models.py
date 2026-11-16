@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from netbox.models import NetBoxModel
-from dcim.models import Rack, Device
+from dcim.models import Rack, Device, Location
 from .utils import file_upload
 
 
@@ -19,6 +19,11 @@ def _is_text(obj):
 
 def _is_rect(obj):
     return _canvas_type(obj) == "rect"
+
+
+def location_rack_label(count):
+    """The rack count shown on a placed child-location area. Must match the editor's label."""
+    return "1 rack" if count == 1 else f"{count} racks"
 
 
 class FloorplanImage(NetBoxModel):
@@ -204,6 +209,15 @@ class Floorplan(NetBoxModel):
                                         int(subobj["custom_meta"]["object_id"]))
         return drawn_devices
 
+    @property
+    def mapped_locations(self):
+        """IDs of the child locations placed on the canvas as areas."""
+        return [
+            int(obj["custom_meta"]["object_id"])
+            for obj in ((self.canvas or {}).get("objects") or [])
+            if (obj.get("custom_meta") or {}).get("object_type") == "location"
+        ]
+
     def resync_canvas(self):
         """
         Synchronize canvas objects with current NetBox data.
@@ -366,8 +380,66 @@ class Floorplan(NetBoxModel):
                                                     self.canvas["objects"][index]["objects"][
                                                         subcounter]["text"] = f"{device.status}"
                                                     changed = True
+        if self._resync_locations():
+            changed = True
+
         if changed:
             self.save()
+
+    def _resync_locations(self):
+        """
+        Keep placed child-location areas in step with NetBox: refresh the name and the rack
+        count, and drop areas whose location has been deleted. Returns True if the canvas
+        changed. Kept apart from the rack and device pass above, which edits the object list
+        while iterating over it.
+        """
+        objects = (self.canvas or {}).get("objects") or []
+        placed = [o for o in objects if (o.get("custom_meta") or {}).get("object_type") == "location"]
+        if not placed:
+            return False
+
+        ids = {int(o["custom_meta"]["object_id"]) for o in placed}
+        locations = {
+            location.pk: location
+            for location in Location.objects.add_related_count(
+                Location.objects.filter(pk__in=ids), Rack, 'location', 'rack_count', cumulative=True
+            )
+        }
+
+        changed = False
+        kept = []
+        for obj in objects:
+            meta = obj.get("custom_meta") or {}
+            if meta.get("object_type") != "location":
+                kept.append(obj)
+                continue
+            location = locations.get(int(meta["object_id"]))
+            if location is None:
+                changed = True
+                continue
+            kept.append(obj)
+            if meta.get("object_name") != location.name:
+                meta["object_name"] = location.name
+                changed = True
+            info = location_rack_label(location.rack_count)
+            for member in obj.get("objects") or []:
+                member_meta = member.get("custom_meta") or {}
+                if member_meta.get("object_type") == "location" and member_meta.get("object_name") != location.name:
+                    member_meta["object_name"] = location.name
+                    changed = True
+                if not _is_text(member):
+                    continue
+                text_type = member_meta.get("text_type")
+                if text_type == "name" and member.get("text") != location.name:
+                    member["text"] = location.name
+                    changed = True
+                elif text_type == "info" and member.get("text") != info:
+                    member["text"] = info
+                    changed = True
+
+        if changed:
+            self.canvas["objects"] = kept
+        return changed
 
     def clean(self):
         super().clean()

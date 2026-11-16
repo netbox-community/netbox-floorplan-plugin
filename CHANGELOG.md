@@ -1,5 +1,17 @@
 # Change Log
 
+## Unreleased
+
+### Features
+
+* **Child locations as linked areas** ([#8](https://github.com/netbox-community/netbox-floorplan-plugin/issues/8)).
+  The editor's new **Child Locations** tab adds a location below the floorplan's (or any
+  location of the site, for a site floorplan) as a translucent area showing its name and
+  rack count. On the Floor Plan tab, clicking the area opens that location's floorplan.
+  The name and rack count are refreshed from NetBox, and the area is removed when its
+  location is deleted. Resizing an area sets its size rather than stretching its labels,
+  and keeps it where it was dragged.
+
 ## v0.10.0
 
 **Targets NetBox 4.7.** The supported range is declared as a minimum of 4.7.0 and a

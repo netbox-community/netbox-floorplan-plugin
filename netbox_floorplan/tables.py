@@ -4,7 +4,7 @@ from netbox.tables import NetBoxTable
 from .models import Floorplan, FloorplanImage
 from functools import cached_property
 
-from dcim.models import Rack, Device
+from dcim.models import Rack, Device, Location
 
 
 class FloorplanImageTable(NetBoxTable):
@@ -102,4 +102,29 @@ class FloorplanDeviceTable(NetBoxTable):
         default_columns = ('pk', 'name', 'device_type')
         row_attrs = {
             'id': lambda record: 'object_device_{}'.format(record.pk),
+        }
+
+
+class FloorplanLocationTable(NetBoxTable):
+    name = tables.Column(linkify=True)
+    parent = tables.Column(linkify=True)
+    rack_count = tables.Column(verbose_name="Racks")
+    embedded = True
+
+    actions = tables.TemplateColumn(template_code="""
+    {% load template_utils %}
+    <a type="button" class="btn btn-sm btn-outline-info" onclick="add_floorplan_location({{ record.id|js_str }}, {{ record.name|js_str }}, {{ record.rack_count|default:0 }})">Add<br>Area</a>
+    """, orderable=False)
+
+    @cached_property
+    def htmx_url(self):
+        # no need to check for embedded as this table is always embedded
+        return "/plugins/floorplan/floorplans/locations/"
+
+    class Meta(NetBoxTable.Meta):
+        model = Location
+        fields = ('pk', 'name', 'parent', 'rack_count')
+        default_columns = ('pk', 'name', 'parent', 'rack_count')
+        row_attrs = {
+            'id': lambda record: 'object_location_{}'.format(record.pk),
         }
