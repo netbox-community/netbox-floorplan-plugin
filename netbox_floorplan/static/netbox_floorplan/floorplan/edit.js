@@ -2,7 +2,7 @@
 
 
 import {
-    resize_canvas,
+    handle_window_resize,
     export_svg,
     enable_button_selection,
     disable_button_selection,
@@ -12,6 +12,9 @@ import {
     start_pan,
     move_pan,
     reset_zoom,
+    center_on_object,
+    set_relative_zoom,
+    relative_zoom,
     init_floor_plan,
     floorplan_image_url,
     apply_background,
@@ -37,8 +40,6 @@ fabric.Object.prototype.set({
     snapThreshold: 45,
     snapAngle: 45
 });
-
-var current_zoom = 1;
 
 var canvas = new fabric.Canvas('canvas'),
     canvasWidth = document.getElementById('canvas').width,
@@ -78,7 +79,12 @@ canvas.on('object:moving', function (options) {
 // start zoom, pan control & resizing ----------------------------------------------------------------------------- !
 
 $(window).resize(function() {
-    resize_canvas(canvas, window);
+    handle_window_resize(canvas);
+});
+
+// Keep the zoom slider in step with every way of zooming: wheel, reset, centre, resize.
+canvas.on('viewport:changed', function () {
+    document.getElementById("zoom").value = relative_zoom(canvas).toFixed(2);
 });
 
 canvas.on('mouse:wheel', function (opt) {
@@ -954,32 +960,15 @@ function update_text_visibility_controls() {
 }
 window.update_text_visibility_controls = update_text_visibility_controls;
 
-function set_zoom(new_current_zoom) {
-    current_zoom = new_current_zoom;
-    canvas.setZoom(current_zoom);
-    canvas.requestRenderAll()
-    document.getElementById("zoom").value = current_zoom;
+// The slider is relative to the fitted view: 0 shows the whole floorplan, each step of 1
+// doubles or halves the zoom.
+function set_zoom(level) {
+    set_relative_zoom(canvas, parseFloat(level));
 }
 window.set_zoom = set_zoom;
 
 function center_pan_on_slected_object() {
-    let pan_x = 0
-    let pan_y = 0
-    let object = canvas.getActiveObject()
-    let obj_wdth = object.getScaledWidth()
-    let obj_hgt = object.getScaledHeight()
-    let rect_cooords = object.getBoundingRect();
-    let zoom_level = Math.min(canvas.width / rect_cooords.width, canvas.height / rect_cooords.height);
-
-    canvas.setZoom(zoom_level * 0.7);
-    let zoom = canvas.getZoom()
-    pan_x = ((canvas.getWidth() / zoom / 2) - (object.aCoords.tl.x) - (obj_wdth / 2)) * zoom
-    pan_y = ((canvas.getHeight() / zoom / 2) - (object.aCoords.tl.y) - (obj_hgt / 2)) * zoom
-    pan_x = (canvas.getVpCenter().x - object.getCenterPoint().x) * zoom
-    pan_y = ((canvas.getVpCenter().y - object.getCenterPoint().y) * zoom)
-    canvas.relativePan({ x: pan_x, y: pan_y })
-    canvas.requestRenderAll()
-
+    center_on_object(canvas, canvas.getActiveObject());
 }
 window.center_pan_on_slected_object = center_pan_on_slected_object;
 
@@ -1067,7 +1056,7 @@ function update_dimensions() {
         error: function (err) {
             console.log(`Error: ${err}`);
         }
-    }).done(function () {
+    }).done(function (floorplan) {
 
         // set the boundry variables for zoom controls
         var center_x = rounded_width / 2;
@@ -1162,8 +1151,13 @@ function update_dimensions() {
         //canvas.setDimensions({ width: rounded_width, height: rounded_height }, { cssOnly: true });
         canvas.renderAll();
         save_floorplan();
-        set_zoom(1);
+        reset_zoom(canvas);
         $('#control_unit_modal').modal('hide');
+        // The background is fitted to the boundary, which was just replaced: fit it again, or it
+        // keeps the old size until the page is reloaded.
+        if (floorplan && floorplan.assigned_image) {
+            apply_background(canvas, floorplan);
+        }
     });
 };
 window.update_dimensions = update_dimensions;

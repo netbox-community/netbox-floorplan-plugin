@@ -1,11 +1,10 @@
 import {
-    resize_canvas,
+    handle_window_resize,
     export_svg,
     wheel_zoom,
     stop_pan,
     move_pan,
     start_pan,
-    reset_zoom,
     init_floor_plan
 } from "/static/netbox_floorplan/floorplan/utils.js";
 
@@ -31,7 +30,7 @@ canvas.on('mouse:down', function (options) {
 // start zoom, pan control & resizing ----------------------------------------------------------------------------- !
 
 $(window).resize(function() {
-    resize_canvas(canvas, window);
+    handle_window_resize(canvas, { fit_height: true });
 });
 
 canvas.on('mouse:wheel', function (opt) {
