@@ -1,5 +1,15 @@
 # Change Log
 
+## Unreleased
+
+### Bug Fixes
+
+* **The Floor Plan tab no longer shows other plugins' page content.** The site and location
+  tabs used NetBox's SimpleLayout, which adds every plugin's `left_page`, `right_page` and
+  `full_width_page` content for the object, so a location panel from another plugin (such
+  as a QR code label) appeared on the Floor Plan tab too, and full-width content twice.
+  The tabs now show the floorplan only; that content stays on the object's own page.
+
 ## v0.10.0
 
 **Targets NetBox 4.7.** The supported range is declared as a minimum of 4.7.0 and a

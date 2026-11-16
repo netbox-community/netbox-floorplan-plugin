@@ -216,6 +216,47 @@ class FloorplanObjectListViewsTestCase(TestCase):
         self.assertHttpStatus(response, 200)
 
 
+class TabOtherPluginContentTestCase(TestCase):
+    """
+    Other plugins' page content for a site or location belongs on the object's own page, not
+    on its Floor Plan tab. SimpleLayout added it there automatically.
+    """
+    user_permissions = ()
+    MARKER = 'other-plugin-left-page-marker'
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.site = Site.objects.create(name='Site 1', slug='site-1')
+        cls.location = Location.objects.create(name='Location 1', slug='location-1', site=cls.site)
+        Floorplan.objects.create(location=cls.location)
+
+    def setUp(self):
+        super().setUp()
+        from netbox.plugins import PluginTemplateExtension
+        from netbox.registry import registry
+
+        marker = self.MARKER
+
+        class OtherPluginContent(PluginTemplateExtension):
+            models = ('dcim.location',)
+
+            def left_page(self):
+                return marker
+
+        self.extensions = registry['plugins']['template_extensions']['dcim.location']
+        self.extensions.append(OtherPluginContent)
+        self.addCleanup(self.extensions.remove, OtherPluginContent)
+
+    def test_other_plugin_content_stays_off_the_floor_plan_tab(self):
+        self.add_permissions('dcim.view_location', 'netbox_floorplan.view_floorplan')
+        own_page = self.client.get(self.location.get_absolute_url())
+        self.assertIn(self.MARKER, own_page.content.decode())
+
+        tab = self.client.get(reverse('dcim:location_floorplans', args=[self.location.pk]))
+        self.assertHttpStatus(tab, 200)
+        self.assertNotIn(self.MARKER, tab.content.decode())
+
+
 class MediaUrlExposureTestCase(TestCase):
     """
     The canvas needs NetBox's MEDIA_URL, so the templates publish it from Django settings
