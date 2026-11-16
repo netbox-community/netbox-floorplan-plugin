@@ -89,10 +89,17 @@ function scene_bounds(objects) {
     return { left: left, top: top, width: right - left, height: bottom - top };
 }
 
-// What a reset fits to: the floorplan boundary, or every object if no dimensions are set yet.
+// What a reset fits to: the floorplan boundary, or every object if no dimensions are set yet,
+// or the background image if there is nothing else (a floorplan that is only a background).
 function drawing_bounds(canvas) {
     const boundary = find_boundary(canvas);
-    return scene_bounds(boundary ? [boundary] : canvas.getObjects());
+    if (boundary) {
+        return scene_bounds([boundary]);
+    }
+    if (canvas.getObjects().length) {
+        return scene_bounds(canvas.getObjects());
+    }
+    return canvas.backgroundImage ? scene_bounds([canvas.backgroundImage]) : null;
 }
 
 function notify_viewport(canvas) {
@@ -131,7 +138,11 @@ function resize_canvas(canvas, options) {
 // Zoom and pan so that the given objects fill the canvas, centred, with a margin. Returns the
 // zoom it set, or null if the objects have no measurable size.
 function fit_to_objects(canvas, objects, margin) {
-    const bounds = scene_bounds(objects);
+    return fit_to_bounds(canvas, scene_bounds(objects), margin);
+}
+
+// Zoom and pan so that a scene rectangle fills the canvas, centred, with a margin.
+function fit_to_bounds(canvas, bounds, margin) {
     if (!bounds) {
         return null;
     }
@@ -154,8 +165,7 @@ function fit_to_objects(canvas, objects, margin) {
 // Show the whole floorplan. The zoom this produces is the reference for the editor's zoom
 // slider, and until the user zooms or pans again the drawing is refitted on window resize.
 function reset_zoom(canvas) {
-    const boundary = find_boundary(canvas);
-    const zoom = fit_to_objects(canvas, boundary ? [boundary] : canvas.getObjects());
+    const zoom = fit_to_bounds(canvas, drawing_bounds(canvas));
     if (zoom === null) {
         canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
         notify_viewport(canvas);

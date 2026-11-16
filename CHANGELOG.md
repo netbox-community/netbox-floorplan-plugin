@@ -8,7 +8,8 @@
   The drawing was fitted to the canvas before the canvas was resized, so it loaded as a
   small box in the corner and had to be zoomed on every visit. The canvas is now sized
   first and the floorplan fitted to it, with the zoom and pan computed from scratch
-  rather than relative to the previous view.
+  rather than relative to the previous view. A floorplan with no dimensions and nothing
+  placed yet, only a background image, is fitted to the image.
 * **The canvas fits the window.** It was sized to the window height minus a fixed 100 px,
   which ran past the bottom of the window under NetBox's header and tabs. It now takes the
   width of its card and the height left below it in the window. On the read-only
