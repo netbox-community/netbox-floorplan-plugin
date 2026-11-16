@@ -1056,7 +1056,7 @@ function update_dimensions() {
         error: function (err) {
             console.log(`Error: ${err}`);
         }
-    }).done(function () {
+    }).done(function (floorplan) {
 
         // set the boundry variables for zoom controls
         var center_x = rounded_width / 2;
@@ -1153,6 +1153,11 @@ function update_dimensions() {
         save_floorplan();
         reset_zoom(canvas);
         $('#control_unit_modal').modal('hide');
+        // The background is fitted to the boundary, which was just replaced: fit it again, or it
+        // keeps the old size until the page is reloaded.
+        if (floorplan && floorplan.assigned_image) {
+            apply_background(canvas, floorplan);
+        }
     });
 };
 window.update_dimensions = update_dimensions;
