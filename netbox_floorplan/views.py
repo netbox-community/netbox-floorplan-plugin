@@ -16,6 +16,10 @@ from utilities.views import ViewTab, register_model_view
 
 
 # The canvas and the pro tips block are shared by both floorplan tab views.
+# The Floor Plan tabs show the floorplan only. NetBox's SimpleLayout would add every plugin's
+# left_page, right_page and full_width_page content for the site or location, which belongs on
+# the object's own page: another plugin's location panel (a QR code label, for instance)
+# appeared on the Floor Plan tab, and full-width content appeared twice.
 FLOORPLAN_PANELS = (
     TemplatePanel('netbox_floorplan/inc/floorplan_canvas.html'),
     TemplatePanel('netbox_floorplan/inc/pro_tips_panel.html'),
@@ -32,7 +36,8 @@ class FloorplanSiteTabView(generic.ObjectView):
         permission="netbox_floorplan.view_floorplan",
     )
     template_name = "netbox_floorplan/floorplan_view.html"
-    layout = layout.SimpleLayout(
+    layout = layout.Layout(
+        layout.Row(layout.Column(*FLOORPLAN_PANELS)),
         # As the template did, walk the site's region and group ancestors. NetBox's own site
         # view shows neither, so these are the plugin's addition.
         breadcrumbs=[
@@ -44,10 +49,6 @@ class FloorplanSiteTabView(generic.ObjectView):
                 lambda obj: obj.group.get_ancestors(include_self=True) if obj.group else [],
                 url=filtered_list_url('dcim:site_list', 'group_id'),
             ),
-        ],
-        bottom_panels=[
-            *FLOORPLAN_PANELS,
-            PluginContentPanel('full_width_page'),
         ],
     )
 
@@ -71,16 +72,13 @@ class FloorplanLocationTabView(generic.ObjectView):
         permission="netbox_floorplan.view_floorplan",
     )
     template_name = "netbox_floorplan/floorplan_view.html"
-    layout = layout.SimpleLayout(
+    layout = layout.Layout(
+        layout.Row(layout.Column(*FLOORPLAN_PANELS)),
         # Matching NetBox's own location view, which walks the location's ancestors. The
         # template checked for a region and a group, neither of which a Location has, so it
         # only ever rendered the root breadcrumb here.
         breadcrumbs=[
             Breadcrumb(lambda obj: obj.get_ancestors()),
-        ],
-        bottom_panels=[
-            *FLOORPLAN_PANELS,
-            PluginContentPanel('full_width_page'),
         ],
     )
 
