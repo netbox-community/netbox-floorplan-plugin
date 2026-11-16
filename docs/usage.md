@@ -65,6 +65,14 @@ With an object selected:
 
 Deleting a placed object removes it from the drawing only. The rack or device itself is untouched, and becomes available in the picker again.
 
+## Footprint
+
+Racks are placed at their rack type's outer width and depth (or the rack's own, if it has no rack type), to the same scale as the floorplan. A rack with no outer dimensions is placed at 600 × 910 mm, and devices, which have no footprint in NetBox, at 600 × 600 mm.
+
+To change the size of a placed rack or device, select it and enter a width and depth in millimetres under **Rack/Device Footprint**, then **Apply**. The size is kept with the floorplan when you **Save**. **Reset to NetBox Size** removes it and applies the size NetBox currently gives the object.
+
+The size is taken when the object is placed: changing a rack type's dimensions later does not resize racks already on a floorplan. Use **Reset to NetBox Size**, or remove the rack and place it again.
+
 ## Locking and Navigation
 
 * **Lock** fixes an object in place so it cannot be dragged or resized accidentally. Useful for walls and areas once the outline is right.

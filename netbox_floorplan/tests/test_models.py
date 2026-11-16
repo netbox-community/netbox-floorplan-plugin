@@ -252,6 +252,23 @@ class FloorplanResyncCanvasTestCase(TestCase):
         floorplan.resync_canvas()
         self.assertEqual(floorplan.canvas, {})
 
+    def test_size_override_survives_a_resync(self):
+        # A footprint set in the editor is kept in the group's custom_meta; the resync updates
+        # the name there and must leave the override in place.
+        self.floorplan.canvas['objects'][0]['custom_meta']['size_override'] = {
+            'width': 800, 'depth': 1200,
+        }
+        self.floorplan.save()
+
+        self.rack.name = 'rack-1-renamed'
+        self.rack.save()
+        self.floorplan.resync_canvas()
+        self.floorplan.refresh_from_db()
+
+        meta = self.floorplan.canvas['objects'][0]['custom_meta']
+        self.assertEqual(meta['object_name'], 'rack-1-renamed')
+        self.assertEqual(meta['size_override'], {'width': 800, 'depth': 1200})
+
 
 class FloorplanImageTestCase(TestCase):
 

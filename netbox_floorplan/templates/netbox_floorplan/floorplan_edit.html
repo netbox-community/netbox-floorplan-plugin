@@ -171,6 +171,21 @@
                                             </label>
                                         </div>
                                     </div>
+                                    <div class="mb-3 d-none" id="size_controls">
+                                        <div class="mb-1">
+                                            <label class="form-label">Rack/Device Footprint</label>
+                                        </div>
+                                        <div class="input-group mb-1">
+                                            <span class="input-group-text">Width</span>
+                                            <input type="number" id="size_width" class="form-control" min="1" step="10" aria-label="Width in millimetres">
+                                            <span class="input-group-text">Depth</span>
+                                            <input type="number" id="size_depth" class="form-control" min="1" step="10" aria-label="Depth in millimetres">
+                                            <span class="input-group-text">mm</span>
+                                        </div>
+                                        <a class="btn btn-outline-secondary" onclick="apply_size()">Apply</a>
+                                        <a class="btn btn-outline-secondary" id="reset_size" onclick="reset_size()">Reset to NetBox Size</a>
+                                        <div class="form-text" id="size_source"></div>
+                                    </div>
                                     <div class="mb-3">
                                         <div class="mb-1">
                                             <label class="form-label">Object Layer Control</label>
