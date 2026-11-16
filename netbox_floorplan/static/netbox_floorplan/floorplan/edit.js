@@ -1057,7 +1057,8 @@ function add_floorplan_location(location_id, location_name, rack_count) {
     group.custom_meta = meta;
     group.set('id', location_id);
     canvas.add(group);
-    canvas.centerObject(group);
+    // In the middle of what is currently shown, which is where the user is working.
+    canvas.viewportCenterObject(group);
     canvas.sendObjectToBack(group);
     group.setCoords();
     canvas.setActiveObject(group);
