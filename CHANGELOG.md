@@ -1,5 +1,39 @@
 # Change Log
 
+## Unreleased
+
+### Features
+
+* **Saved view.** The editor's **Use as View** stores the area currently shown, and the
+  Floor Plan tab and **Reset Zoom** fit that area instead of the whole floorplan. It is kept
+  as a rectangle in drawing coordinates in the canvas document (`saved_view`), so it shows the
+  same part of the floorplan on any screen size; **Clear View** removes it. No migration:
+  floorplans without a saved view behave as before.
+
+### Bug Fixes
+
+* **Floorplans open fitted to the page** ([#110](https://github.com/netbox-community/netbox-floorplan-plugin/issues/110)).
+  The drawing was fitted to the canvas before the canvas was resized, so it loaded as a
+  small box in the corner and had to be zoomed on every visit. The canvas is now sized
+  first and the floorplan fitted to it, with the zoom and pan computed from scratch
+  rather than relative to the previous view. A floorplan with no dimensions and nothing
+  placed yet, only a background image, is fitted to the image.
+* **The canvas fits the window.** It was sized to the window height minus a fixed 100 px,
+  which ran past the bottom of the window under NetBox's header and tabs. It now takes the
+  width of its card and the height left below it in the window. On the read-only
+  Floor Plan tab, the canvas is no taller than the drawing needs, so a wide floorplan does
+  not leave a tall empty area under it. Resizing the window refits an untouched view and
+  keeps the centre of a view that has been zoomed or panned.
+* **The zoom slider follows the view.** It worked in absolute zoom from 0 to 2 and was
+  never updated by mouse-wheel zoom or Reset Zoom, so it jumped when used. It is now
+  relative to the fitted view (0 shows the whole floorplan, each step doubles or halves the
+  zoom) and tracks every way of zooming. Centre on a selected object uses the same fitting.
+* **Objects can be moved while zoomed.** Moving an object kept it inside the canvas by
+  comparing its position in the drawing with the canvas size in screen pixels, so once
+  the view was zoomed or panned objects jumped or could not be moved. Objects are now kept
+  inside the floorplan boundary, in drawing coordinates, at any zoom. Before dimensions
+  are set there is no boundary and objects move freely.
+
 ## v0.10.0
 
 **Targets NetBox 4.7.** The supported range is declared as a minimum of 4.7.0 and a
