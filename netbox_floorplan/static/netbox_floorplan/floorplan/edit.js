@@ -1088,12 +1088,17 @@ function apply_location_scale(group) {
     const height = area.height * area.scaleY * group.scaleY;
     const sx = group.scaleX;
     const sy = group.scaleY;
+    // Where the resized area is now, in drawing coordinates. Resetting the scale keeps the
+    // group's top-left corner where the scaled group had it, and the relayout then centres
+    // the group on the unscaled size, so the area jumped by half the resize; put it back.
+    const center = group.getCenterPoint();
     group.set({ scaleX: 1, scaleY: 1 });
     area.set({ width: width, height: height, scaleX: 1, scaleY: 1 });
     group._objects.slice(1).forEach(function (label) {
         label.set({ width: width, left: label.left * sx, top: label.top });
     });
     group.triggerLayout();
+    group.setPositionByOrigin(center, 'center', 'center');
     group.setCoords();
     canvas.requestRenderAll();
 }
