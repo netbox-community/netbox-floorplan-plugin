@@ -87,6 +87,12 @@
                                                     aria-controls="unrack-tabs" aria-selected="false">Un-Racked
                                                     Devices</button>
                                             </li>
+                                            <li class="nav-item">
+                                                <button class="nav-link" data-bs-toggle="tab" id="location-tab"
+                                                    data-bs-target="#location-tabs" type="button" role="tab"
+                                                    aria-controls="location-tabs" aria-selected="false">Child
+                                                    Locations</button>
+                                            </li>
                                         </ul>
                                         <div class="tab-content">
                                             <div class="tab-pane show active" id="rack-tabs" role="tabpanel"
@@ -101,6 +107,14 @@
                                                 aria-labelledby="unrack-tabs">
                                                 <div class="card">
                                                     <div id="unrack-card"
+                                                        class="card-body htmx-container table-responsive">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane fade" id="location-tabs" role="tabpanel"
+                                                aria-labelledby="location-tabs">
+                                                <div class="card">
+                                                    <div id="location-card"
                                                         class="card-body htmx-container table-responsive">
                                                     </div>
                                                 </div>

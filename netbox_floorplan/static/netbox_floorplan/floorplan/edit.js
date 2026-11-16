@@ -31,6 +31,7 @@ var location_id = document.getElementById('location_id').value;
 
 htmx.ajax('GET', `/plugins/floorplan/floorplans/racks/?floorplan_id=${obj_pk}`, { source: '#rack-card', target: '#rack-card', swap: 'innerHTML', trigger: 'load' })
 htmx.ajax('GET', `/plugins/floorplan/floorplans/devices/?floorplan_id=${obj_pk}`, { source: '#unrack-card', target: '#unrack-card', swap: 'innerHTML', trigger: 'load' })
+htmx.ajax('GET', `/plugins/floorplan/floorplans/locations/?floorplan_id=${obj_pk}`, { source: '#location-card', target: '#location-card', swap: 'innerHTML', trigger: 'load' })
 
 
 fabric.Object.prototype.set({
@@ -210,7 +211,8 @@ function lock_floorplan_object() {
                 mtr: true,
             });
             if ( object._objects[0].custom_meta.object_type === "wall" ||
-            object._objects[0].custom_meta.object_type === "area" ) {
+            object._objects[0].custom_meta.object_type === "area" ||
+                object._objects[0].custom_meta.object_type === "location" ) {
                 object.setControlsVisibility({
                     mt: true,
                     mb: true,
@@ -228,7 +230,8 @@ function lock_floorplan_object() {
                 mtr: false,
             });
             if ( object._objects[0].custom_meta.object_type === "wall" ||
-                object._objects[0].custom_meta.object_type === "area" ) {
+                object._objects[0].custom_meta.object_type === "area" ||
+                object._objects[0].custom_meta.object_type === "location" ) {
                 object.setControlsVisibility({
                     mt: false,
                     mb: false,
@@ -465,6 +468,7 @@ function delete_floorplan_object() {
         setTimeout(() => {
             htmx.ajax('GET', `/plugins/floorplan/floorplans/racks/?floorplan_id=${obj_pk}`, { target: '#rack-card', swap: 'innerHTML' });
             htmx.ajax('GET', `/plugins/floorplan/floorplans/devices/?floorplan_id=${obj_pk}`, { target: '#unrack-card', swap: 'innerHTML' });
+            htmx.ajax('GET', `/plugins/floorplan/floorplans/locations/?floorplan_id=${obj_pk}`, { target: '#location-card', swap: 'innerHTML' });
         }, 1500);
     });
     // Clear the selection after deletion
@@ -982,6 +986,124 @@ function center_pan_on_slected_object() {
 
 }
 window.center_pan_on_slected_object = center_pan_on_slected_object;
+
+// start child locations ----------------------------------------------------------------------------- !
+//
+// A child location is drawn as a translucent area with its name and rack count. Clicking it on
+// the Floor Plan tab opens that location's own floorplan, so a building, floor or hall plan can
+// be drilled down into. Like racks, the group carries custom_meta identifying the location;
+// resync_canvas() refreshes the name and rack count and removes the area if the location is
+// deleted. Areas are placed behind everything else so racks drawn inside stay clickable.
+
+const LOCATION_FILL = "#6ea8fe";
+const LOCATION_STROKE = "#0d6efd";
+
+function location_rack_label(count) {
+    // Must match location_rack_label() in models.py, which refreshes it.
+    return count == 1 ? "1 rack" : `${count} racks`;
+}
+
+function add_floorplan_location(location_id, location_name, rack_count) {
+    const meta = {
+        "object_type": "location",
+        "object_id": location_id,
+        "object_name": location_name,
+        "object_url": "/dcim/locations/" + location_id + "/floorplans/",
+    };
+    const width = 300;
+    const height = 200;
+
+    const area = new fabric.Rect({
+        left: 0,
+        top: 0,
+        width: width,
+        height: height,
+        fill: LOCATION_FILL,
+        opacity: 0.25,
+        stroke: LOCATION_STROKE,
+        strokeWidth: 2,
+        strokeUniform: true,
+        originX: "center",
+        originY: "center",
+        custom_meta: Object.assign({}, meta),
+    });
+    const name = new fabric.Textbox(location_name, {
+        fontFamily: "Courier New",
+        fontSize: 18,
+        fontWeight: "bold",
+        fill: LOCATION_STROKE,
+        width: width,
+        textAlign: "center",
+        originX: "center",
+        originY: "center",
+        left: 0,
+        top: -10,
+        custom_meta: { "text_type": "name" },
+    });
+    const info = new fabric.Textbox(location_rack_label(rack_count), {
+        fontFamily: "Courier New",
+        fontSize: 12,
+        fill: LOCATION_STROKE,
+        width: width,
+        textAlign: "center",
+        originX: "center",
+        originY: "center",
+        left: 0,
+        top: 12,
+        custom_meta: { "text_type": "info" },
+    });
+
+    const group = new fabric.Group([area, name, info], { originX: "left", originY: "top" });
+    group.custom_meta = meta;
+    group.set('id', location_id);
+    canvas.add(group);
+    canvas.centerObject(group);
+    canvas.sendObjectToBack(group);
+    group.setCoords();
+    canvas.setActiveObject(group);
+    canvas.requestRenderAll();
+
+    const row = document.getElementById(`object_location_${location_id}`);
+    if (row) {
+        row.remove();
+    }
+}
+window.add_floorplan_location = add_floorplan_location;
+
+function is_location_area(object) {
+    return Boolean(object && object.custom_meta && object.custom_meta.object_type == "location"
+        && object._objects && object._objects.length);
+}
+
+// Resizing a group scales everything in it, labels included. For a location area, turn the
+// scale into a real size once the resize ends: the area takes the new width and height, the
+// labels keep their font size and span the new width.
+function apply_location_scale(group) {
+    if (group.scaleX == 1 && group.scaleY == 1) {
+        return;
+    }
+    const area = group._objects[0];
+    const width = area.width * area.scaleX * group.scaleX;
+    const height = area.height * area.scaleY * group.scaleY;
+    const sx = group.scaleX;
+    const sy = group.scaleY;
+    group.set({ scaleX: 1, scaleY: 1 });
+    area.set({ width: width, height: height, scaleX: 1, scaleY: 1 });
+    group._objects.slice(1).forEach(function (label) {
+        label.set({ width: width, left: label.left * sx, top: label.top });
+    });
+    group.triggerLayout();
+    group.setCoords();
+    canvas.requestRenderAll();
+}
+
+canvas.on('object:modified', function (opt) {
+    if (is_location_area(opt.target)) {
+        apply_location_scale(opt.target);
+    }
+});
+
+// end child locations ----------------------------------------------------------------------------- !
 
 // end buttons ----------------------------------------------------------------------------- !
 

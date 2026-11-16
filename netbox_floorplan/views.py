@@ -181,6 +181,28 @@ class FloorplanDeviceListView(generic.ObjectListView):
         return super().get(request)
 
 
+class FloorplanLocationListView(generic.ObjectListView):
+    """
+    The editor's Child Locations picker: the locations that can be drawn on the floorplan as
+    areas linking to their own floorplans. For a location floorplan these are the location's
+    descendants, for a site floorplan every location at the site, less those already placed.
+    """
+    queryset = Location.objects.all()
+    table = tables.FloorplanLocationTable
+
+    def get(self, request):
+        fp_instance = models.Floorplan.objects.get(pk=request.GET["floorplan_id"])
+        if fp_instance.record_type == "site":
+            candidates = Location.objects.filter(site=fp_instance.site_id)
+        else:
+            candidates = fp_instance.location.get_descendants()
+        self.queryset = Location.objects.add_related_count(
+            candidates.exclude(pk__in=fp_instance.mapped_locations).select_related("parent"),
+            Rack, 'location', 'rack_count', cumulative=True
+        )
+        return super().get(request)
+
+
 @register_model_view(models.FloorplanImage)
 class FloorplanImageView(generic.ObjectView):
     queryset = models.FloorplanImage.objects.all()
